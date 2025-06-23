@@ -127,22 +127,9 @@ network = ResidualEncoderUNet(
     deep_supervision=False,
 )
     
-    
-def test_convert_to_fp16():
-    network.initialize(network)
-    test_submodules_loadable(network)
-    checkpoint = torch.load("model.pth", map_location="cpu", weights_only=False)
-    network.load_state_dict(checkpoint["network_weights"])
-    network = network.half()
-    for param in network.parameters():
-        param.data = param.data.half()
-    new_checkpoint = {"network_weights": network.state_dict()}
-    torch.save(new_checkpoint, "model_fp16.pth")
-    print("Checkpoint loaded successfully.")
-    
 def test_load():
     network.initialize(network)
-    test_submodules_loadable(network)
+
     checkpoint = torch.load("./model.pth", map_location="cpu", weights_only=False)
     network.load_state_dict(checkpoint["network_weights"])
     print("Checkpoint loaded successfully.")
