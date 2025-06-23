@@ -3,6 +3,7 @@ from inference.unet import ResidualEncoderUNet
 import nibabel as nib
 import numpy as np
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 network = ResidualEncoderUNet(
     input_channels=1,
@@ -51,15 +52,28 @@ network.initialize(network)
 checkpoint = torch.load("./model.pth", map_location="cpu", weights_only=False)
 network.load_state_dict(checkpoint["network_weights"])
 print("Checkpoint loaded successfully.")
-
+network.to(device)
 network.eval()
 img = nib.load("./sub-r001s001_0000.nii.gz")
+affine = img.affine
 img=img.get_fdata().astype("float32")
-print(compute_steps(img.shape, [128, 128, 128], 0.5))
-tensor=torch.from_numpy(img).unsqueeze(0).unsqueeze(0)
+patch_size=[128, 128, 128]
+steps = compute_steps(img.shape, patch_size, 0.5)
+total_patches = len(steps[0]) * len(steps[1]) * len(steps[2])
+count = 0
+print(steps)
+output_sum = torch.zeros(1,2,*img.shape)
+for x in steps[0]:
+    for y in steps[1]:
+        for z in steps[2]:
+            count+=1
+            patch = img[x:x+patch_size[0],y:y+patch_size[1],z:z+patch_size[2]]
+            patch=torch.from_numpy(patch).unsqueeze(0).unsqueeze(0).to(device)
+            with torch.no_grad():
+                pred = network(patch)
+                output_sum[:, :, x:x+patch_size[0], y:y+patch_size[1], z:z+patch_size[2]] += pred.cpu()
+            print(f"Fin traitement du patch {count} / {total_patches}")
 
-
-# print(tensor.size())
-# with torch.no_grad():
-#     output = network(tensor)
-# print(output)
+output = output_sum.numpy()
+out_img = nib.Nifti1Image(output,affine)
+nib.save(out_img, "output.nii.gz")
