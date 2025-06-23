@@ -2,6 +2,7 @@ import torch
 from inference.unet import ResidualEncoderUNet
 import nibabel as nib
 import numpy as np
+from scipy.ndimage import gaussian_filter
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -47,6 +48,22 @@ def compute_steps(image_size, patch_size, step_size):
         steps.append(steps_here)
 
     return steps
+
+def compute_gaussian(patch_size, sigma_scale, value_scaling_factor, dtype, device):
+    tmp = np.zeros(patch_size)
+    center_coords = [i // 2 for i in patch_size]
+    sigmas = [i * sigma_scale for i in patch_size]
+    tmp[tuple(center_coords)] = 1
+    gaussian_importance_map = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
+
+    gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
+
+    gaussian_importance_map /= (torch.max(gaussian_importance_map) / value_scaling_factor)
+    gaussian_importance_map = gaussian_importance_map.to(device=device, dtype=dtype)
+    # gaussian_importance_map cannot be 0, otherwise we may end up with nans!
+    mask = gaussian_importance_map == 0
+    gaussian_importance_map[mask] = torch.min(gaussian_importance_map[~mask])
+    return gaussian_importance_map
 
 network.initialize(network)
 checkpoint = torch.load("./model.pth", map_location="cpu", weights_only=False)
