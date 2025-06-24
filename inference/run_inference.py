@@ -3,14 +3,13 @@ from manager.option_manager import Option
 import torch
 import numpy as np
 from scipy.ndimage import gaussian_filter
-import nibabel
-import os
 import time
 
 class Inference:
-    def __init__(self,model_path,img_path,output_path,patch_size=[128,128,128]):
+    def __init__(self,patch_size):
         option = Option()
-        self.device = option.get("device","cuda")
+        self.device = option.get("device","cpu")
+
         self.network = ResidualEncoderUNet(
             input_channels=1,
             n_stages=6,
@@ -29,14 +28,14 @@ class Inference:
             deep_supervision=False,
         )
         self.network.initialize()
+        model_path = option.get("model_path","./model_path")
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
         self.network.load_state_dict(checkpoint["network_weights"])
         print("Checkpoint loaded successfully.")
         self.network.to(self.device)
         self.network.eval()
-        self.img_path = img_path
         self.patch_size = patch_size
-        self.output_path = output_path
+        self.output_path = option.get("output_path","./")
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
@@ -79,24 +78,23 @@ class Inference:
         gaussian_importance_map[mask] = torch.min(gaussian_importance_map[~mask])
         return gaussian_importance_map
 
-    def run_inference(self):
-        img = nibabel.load(self.img_path)
-        affine = img.affine
-        data = img.get_fdata().astype("float32")
-        steps = self._compute_steps(data.shape,self.patch_size)
+    def run(self,data):
+        assert data.ndim == 4, f"Expected 4D input (c, x, y, z), got {data.shape}"
+        _, x, y, z = data.shape
+        steps = self._compute_steps((x, y, z),self.patch_size)
         gaussian = self._compute_gaussian(self.patch_size,self.device)
         total_patches = len(steps[0]) * len(steps[1]) * len(steps[2])
         count = 0
-        output = torch.zeros(1,2,*data.shape)
-        normalization_map = torch.zeros(1, 1, *data.shape)
+        output = torch.zeros(1,2, x, y, z)
+        normalization_map = torch.zeros(1, 1, x, y, z)
         start_time = time.time()
         last_time = start_time
         for x in steps[0]:
             for y in steps[1]:
                 for z in steps[2]:
                     count+=1
-                    patch = data[x:x+self.patch_size[0],y:y+self.patch_size[1],z:z+self.patch_size[2]]
-                    patch=torch.from_numpy(patch).unsqueeze(0).unsqueeze(0).to(self.device)
+                    patch = data[:,x:x+self.patch_size[0],y:y+self.patch_size[1],z:z+self.patch_size[2]]
+                    patch=torch.from_numpy(patch).unsqueeze(0).to(self.device)
                     with torch.no_grad():
                         pred = self.network(patch)*gaussian
                         output[:, :, x:x+self.patch_size[0], y:y+self.patch_size[1], z:z+self.patch_size[2]] += pred.cpu()
@@ -107,13 +105,5 @@ class Inference:
                     remaining = (total_elapsed / count) * (total_patches - count)
                     print(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
                     last_time = now
-        # output =torch.softmax(output / normalization_map, dim=1)
-        # print(output)
-        # output = torch.argmax(output, dim=1, keepdim=True)
-        output = output.numpy().astype(np.uint8)
-        out_img = nibabel.Nifti1Image(output,affine)
-
-        base_name = os.path.basename(self.img_path)
-        base_name = base_name.split(".nii")[0]
-        output_file = os.path.join(self.output_path, base_name + "_seg.nii.gz")
-        nibabel.save(out_img, output_file)
+        output = output.numpy()
+        return output
