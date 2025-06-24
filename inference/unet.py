@@ -101,7 +101,6 @@ class ResidualEncoderUNet(AbstractDynamicNetworkArchitectures):
             input_size
         )
 
-    @staticmethod
-    def initialize(module):
-        InitWeights_He(1e-2)(module)
-        init_last_bn_before_add_to_0(module)
+    def initialize(self):
+        InitWeights_He(1e-2)(self)
+        init_last_bn_before_add_to_0(self)

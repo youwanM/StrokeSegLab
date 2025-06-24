@@ -2,3 +2,4 @@
 *.pth
 *.nii.gz
 *.pyc
+*__pycache__
