@@ -8,4 +8,14 @@ class AnimaWrapper:
     def run(self,command):
         scripts = os.path.join(self.anima_path,command[0])
         full_command = [scripts] + command[1:]
-        subprocess.run(full_command,check=True)
+        # print(f"Starting script: {command[0]}...")
+        try:
+            subprocess.run(
+                full_command,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            # print(f"Script {command[0]} finished successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error while running script {command[0]}: {e}")

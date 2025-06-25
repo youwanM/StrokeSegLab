@@ -1,26 +1,19 @@
-from preprocessing.wrapper import AnimaWrapper
 import os
-import tempfile
-import shutil
 import time
 
-class BrainExtraction:
+class BrainExtracter:
 
-    def __init__(self,atlas_path="./anima_scripts/atlas.nrrd",atlas_mask_path="./anima_scripts/atlas_brain_mask.nrrd"):
-        self.wrapper = AnimaWrapper()
+    def __init__(self,wrapper,atlas_path,atlas_mask_path="./anima_scripts/atlas_brain_mask.nrrd"):
+        self.wrapper = wrapper
         self.atlas = atlas_path
         self.atlas_mask = atlas_mask_path
-        self.temp_dir = tempfile.mkdtemp(prefix="anima_brain_extract_")
         self.pyramid_option = ["-p", "4", "-l", "1"]
         
 
-    def run(self,img_path):
+    def run(self,img_path,prefix):
         start = time.time()
-        prefix = os.path.join(self.temp_dir,self._get_image_basename(img_path))
-        input_dir = os.path.dirname(img_path)
-        output_prefix = os.path.join(input_dir,self._get_image_basename(img_path))
-        brainMask = output_prefix + "_brainMask.nii.gz"
-        maskedBrain = output_prefix + "_masked.nii.gz"
+        brainMask = prefix + "_brainMask.nii.gz"
+        maskedBrain = prefix + "_masked.nii.gz"
 
         command = ["animaPyramidalBMRegistration","-m",self.atlas,"-r",img_path,"-o",prefix+"_rig.nrrd","-O",prefix+"_rig_tr.txt","--sp","3"] + self.pyramid_option
         self.wrapper.run(command)
@@ -65,18 +58,6 @@ class BrainExtraction:
         self.wrapper.run(command)
         end = time.time()
         elapsed = end - start
-        print(f"Temps passé au skull strip : {elapsed:.2f} secondes")
 
+        return maskedBrain, elapsed
     
-    def clean(self):
-        if os.path.exists(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
-    
-    def _get_image_basename(self,img_path):
-        filename = os.path.basename(img_path)
-        if filename.endswith(".nii.gz"):
-            return filename[:-7]  # remove ".nii.gz"
-        elif filename.endswith(".nii"):
-            return filename[:-4]  # remove ".nii"
-        else:
-            return os.path.splitext(filename)[0]

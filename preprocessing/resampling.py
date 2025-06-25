@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from batchgenerators.augmentations.utils import resize_segmentation
 from collections import OrderedDict
@@ -17,6 +18,7 @@ class Resampler:
         
     
     def run(self,data,current_spacing,new_spacing):
+        start = time.time()
         do_separate_z, axis = self._determine_do_sep_z_and_axis(current_spacing, new_spacing,)
 
         if data is not None:
@@ -26,7 +28,7 @@ class Resampler:
         new_shape = self._compute_new_shape(shape[1:], current_spacing, new_spacing)
 
         data_reshaped = self._resample_data_or_seg(data, new_shape,  axis, do_separate_z)
-        return data_reshaped
+        return data_reshaped, start - time.time()
     
     def _determine_do_sep_z_and_axis(self,current_spacing,new_spacing):
         if self.force_separate_z is not None:
