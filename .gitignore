@@ -3,3 +3,4 @@
 *.nii.gz
 *.pyc
 *__pycache__
+anima_scripts
