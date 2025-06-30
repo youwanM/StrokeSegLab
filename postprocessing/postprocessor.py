@@ -1,3 +1,4 @@
+import logging
 import nibabel
 import os
 import numpy as np
@@ -7,6 +8,7 @@ from manager.option_manager import Option
 class Postprocessor:
     def __init__(self):
         self.option = Option()
+        self.logger =logging.getLogger()
         
     
     def _save_img(self,output_path,data,input_path,affine):
@@ -14,7 +16,7 @@ class Postprocessor:
         base_name = os.path.basename(input_path)
         base_name = base_name.split(".nii")[0]
         output_file = os.path.join(output_path, base_name + "_seg.nii.gz")
-        print(f"Saving segmented image to: {output_file}")
+        self.logger.info(f"Saving segmented image to: {output_file}")
         nibabel.save(out_img, output_file)
     
     def _convert_to_segmentation(self, data):

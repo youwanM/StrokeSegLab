@@ -1,3 +1,4 @@
+import logging
 from inference.unet import ResidualEncoderUNet
 from manager.option_manager import Option
 import torch
@@ -6,7 +7,8 @@ from scipy.ndimage import gaussian_filter
 import time
 
 class Inference:
-    def __init__(self,patch_size):
+    def __init__(self,patch_size=[128,128,128]):
+        self.logger=logging.getLogger()
         option = Option()
         self.device = option.get("device","cpu")
 
@@ -28,10 +30,10 @@ class Inference:
             deep_supervision=False,
         )
         self.network.initialize()
-        model_path = option.get("model_path","./model_path")
+        model_path = option.get("model_path","./models/model.pth")
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
         self.network.load_state_dict(checkpoint["network_weights"])
-        print("Checkpoint loaded successfully.")
+        self.logger.info("Checkpoint loaded successfully.")
         self.network.to(self.device)
         self.network.eval()
         self.patch_size = patch_size
@@ -103,7 +105,7 @@ class Inference:
                     total_elapsed = now - start_time
                     iter_time = now - last_time
                     remaining = (total_elapsed / count) * (total_patches - count)
-                    print(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
+                    self.logger.info(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
                     last_time = now
         output = output.numpy()
         return output

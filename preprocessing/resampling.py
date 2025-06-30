@@ -145,5 +145,4 @@ class Resampler:
                     reshaped_final[c] = resize_fn(data[c], new_shape, self.order, **kwargs)
             return reshaped_final
         else:
-            # print("no resampling necessary")
             return data
