@@ -1,6 +1,8 @@
 *.DS_Store
 *.pth
-*.nii.gz
+*.nii*
 *.pyc
 *__pycache__
 anima_scripts
+*.log
+plans.json

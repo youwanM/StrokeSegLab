@@ -11,11 +11,14 @@ class AnimaWrapper:
         scripts = os.path.join(self.anima_path,command[0])
         full_command = [scripts] + command[1:]
         try:
-            subprocess.run(
+            result = subprocess.run(
                 full_command,
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.PIPE
             )
         except subprocess.CalledProcessError as e:
-            self.logger.info(f"Error while running script {command[0]}: {e}")
+            self.logger.error(f"Error while running script {command[0]}: {e}")
+            if e.stderr:
+                self.logger.error(f"STDERR:\n{e.stderr.decode()}")
+            raise

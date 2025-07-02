@@ -7,10 +7,11 @@ from scipy.ndimage import gaussian_filter
 import time
 
 class Inference:
-    def __init__(self,patch_size=[128,128,128]):
+    def __init__(self,gui=None,patch_size=[128,128,128]):
         self.logger=logging.getLogger()
         option = Option()
         self.device = option.get("device","cpu")
+        self.gui = gui
 
         self.network = ResidualEncoderUNet(
             input_channels=1,
@@ -31,13 +32,13 @@ class Inference:
         )
         self.network.initialize()
         model_path = option.get("model_path","./models/model.pth")
+        self.logger.debug(f'model path : {model_path}')
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
         self.network.load_state_dict(checkpoint["network_weights"])
         self.logger.info("Checkpoint loaded successfully.")
         self.network.to(self.device)
         self.network.eval()
         self.patch_size = patch_size
-        self.output_path = option.get("output_path","./")
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
@@ -64,7 +65,7 @@ class Inference:
 
         return steps
     
-    def _compute_gaussian(self,patch_size, device, dtype=torch.float16,sigma_scale=1./8, value_scaling_factor=10):
+    def _compute_gaussian(self,patch_size, dtype=torch.float16,sigma_scale=1./8, value_scaling_factor=10):
         tmp = np.zeros(patch_size)
         center_coords = [i // 2 for i in patch_size]
         sigmas = [i * sigma_scale for i in patch_size]
@@ -74,7 +75,7 @@ class Inference:
         gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
 
         gaussian_importance_map /= (torch.max(gaussian_importance_map) / value_scaling_factor)
-        gaussian_importance_map = gaussian_importance_map.to(device=device, dtype=dtype)
+        gaussian_importance_map = gaussian_importance_map.to(device=self.device, dtype=dtype)
         # gaussian_importance_map cannot be 0, otherwise we may end up with nans!
         mask = gaussian_importance_map == 0
         gaussian_importance_map[mask] = torch.min(gaussian_importance_map[~mask])
@@ -84,7 +85,7 @@ class Inference:
         assert data.ndim == 4, f"Expected 4D input (c, x, y, z), got {data.shape}"
         _, x, y, z = data.shape
         steps = self._compute_steps((x, y, z),self.patch_size)
-        gaussian = self._compute_gaussian(self.patch_size,self.device)
+        gaussian = self._compute_gaussian(self.patch_size)
         total_patches = len(steps[0]) * len(steps[1]) * len(steps[2])
         count = 0
         output = torch.zeros(1,2, x, y, z)
@@ -106,6 +107,9 @@ class Inference:
                     iter_time = now - last_time
                     remaining = (total_elapsed / count) * (total_patches - count)
                     self.logger.info(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
+                    if(self.gui !=None):
+                        self.gui.update_status(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
                     last_time = now
         output = output.numpy()
+        output /= normalization_map.numpy()
         return output

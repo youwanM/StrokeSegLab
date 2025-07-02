@@ -5,14 +5,13 @@ import os
 
 def setup_logger(cli = True):
     logger=logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
 
     if cli:
         handler = logging.StreamHandler()
     else:
         os.makedirs("logs",exist_ok=True)
         log_files = os.listdir("logs")
-        print(len(log_files))
         if len(log_files) >= 5:
             log_files.sort() 
             os.remove(os.path.join("logs", log_files[0]))
