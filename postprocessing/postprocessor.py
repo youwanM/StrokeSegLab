@@ -5,6 +5,7 @@ import numpy as np
 import time
 
 from manager.option_manager import Option
+from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
 from preprocessing.wrapper import AnimaWrapper
 
@@ -14,6 +15,8 @@ class Postprocessor:
         self.logger =logging.getLogger()
         self.wrapper = AnimaWrapper()
         self.resampler = Resampler()
+        if self.option.get("viewer"):
+            self.viewer = Viewer()
         self.gui = gui
     
     def _save_img(self,temp_dir,data,input_path,affine):
@@ -67,9 +70,12 @@ class Postprocessor:
         full_volume[bbox]=data
         full_volume = np.transpose(full_volume, (2, 1, 0))
         return full_volume
+    
+    def check_viewer(self, viewer):
+        self.viewer.check_viewer(viewer)
 
 
-    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding):
+    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,open_viewer=False):
 
 
         action_name="convert to segmentation"
@@ -102,5 +108,10 @@ class Postprocessor:
 
         action_name="register to reference"
         self._print_action(action_name)
-        _,time = self._register_to_reference(nii_file,trsf_path,input_path)
+        output_path,time = self._register_to_reference(nii_file,trsf_path,input_path)
         self._print_duration(action_name,time)
+
+        if open_viewer:
+            action_name="open viewer"
+            self._print_action(action_name)
+            self.viewer.run(input_path,output_path)

@@ -6,3 +6,4 @@
 anima_scripts
 *.log
 plans.json
+dice.py

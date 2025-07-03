@@ -6,29 +6,35 @@ import os
 
 from inference.run_inference import Inference
 from logger.logger import setup_logger
+from manager.config_manager import Config
 from manager.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import torch
+import threading
 
 class GUIMain:
     def __init__(self):
         setup_logger(False)
         self.logger = logging.getLogger()
         self.option = Option()
+        self.config = Config()
+        self.option.set("device",self._check_device())
         self.preprocessor = Preprocessor(gui=self)
         self.inference = Inference(gui=self)
-        self.postprocessor = Postprocessor(gui=self)
+        
 
-        self.option.set("device",self._check_device())
         self.option.set("output_path","./")
 
         self.window = tk.Tk()
-        self.window.minsize(600, 150)
+        self.window.minsize(800, 150)
         self.window.title('nnUNet prediction')
         self.input_path = tk.StringVar(value="")
         self.output_path = tk.StringVar(value="")
         self.suffix = tk.StringVar(value="seg")
+        self.open_viewer = tk.BooleanVar()
+        self.viewer = tk.StringVar(value=self.config.get('default','viewer'))
+        self.viewer_error = tk.StringVar(value="")
 
         self.status_text = tk.StringVar()
         self.working_on_text = tk.StringVar()
@@ -54,27 +60,35 @@ class GUIMain:
         self.entry_suffix = tk.Entry(self.frame, textvariable=self.suffix, width=20)
         self.entry_suffix.grid(row=2, column=1)
 
-        tk.Button(self.frame, text='run', command=self._run).grid(row=3,column=1)
+        tk.Label(self.frame, text="Open viewer : ").grid(row=3, column=0, pady=10)
+        viewer_button = tk.Checkbutton(self.frame, text="ON/OFF", variable=self.open_viewer)
+        viewer_button.grid(row=3,column=1)
+        entry_viewer = tk.Entry(self.frame, textvariable=self.viewer, width=10)
+        entry_viewer.grid(row=3, column=2)
+        viewer_label = tk.Label(self.frame, textvariable=self.viewer_error)
+        viewer_label.grid(row=3, column=3, pady=10)
+        viewer_label.config(fg="red")
+
+        self.run_button = tk.Button(self.frame, text='run', command=self._run)
+        self.run_button.grid(row=4,column=1)
 
         self.label_working_on = tk.Label(self.frame, textvariable=self.working_on_text, fg="blue")
         self.label_status = tk.Label(self.frame, textvariable=self.status_text)
         self.label_result = tk.Label(self.frame, textvariable=self.result_text, font=("Arial", 14, "bold"))
-        # self.stop_requested = False
-        # self.stop_button = tk.Button(self.frame, text="Stop", command=self._stop)
+        self.stop_requested = False
+        self.stop_button = tk.Button(self.frame, text="Stop", command=self._stop)
 
         self.window.mainloop()
     
     def _select_input_folder(self):
         self.input_path.set(filedialog.askdirectory(title='input path'))
-        self.option.set("input_path",self.input_path.get())
+        
         
     def _select_output_path(self):
         self.output_path.set(filedialog.askdirectory(title='output path'))
-        self.option.set('output_path',self.output_path.get())
 
     def _select_input_file(self):
         self.input_path.set(filedialog.askopenfilename(title='input path'))
-        self.option.set("input_path",self.input_path.get())
 
     def _find_nii_files(self):
         self.nii_paths = []
@@ -88,67 +102,104 @@ class GUIMain:
                         self.nii_paths.append(os.path.join(root, f))
         self.logger.debug(f'nii_paths : {self.nii_paths}')
     
-    # def _stop(self):
-    #     self.stop_requested = True
-    #     self.result_text.set("🛑 Stopping...")
-    #     self.label_result.config(fg="red")
-    #     self.window.update()
+    def _stop(self):
+        self.stop_requested = True
+        self.result_text.set("🛑 Stopping...")
+        self.label_result.config(fg="red")
+        self.window.update()
     
-    # def _check_stop(self):
-    #     if self.stop_requested:
-    #         self.logger.info("Prediction stopped by user.")
-    #         self.succes = False
-    #         return True
+    def _check_stop(self):
+        if self.stop_requested:
+            self.logger.info("Prediction stopped by user.")
+            self.success = False
+            return True
+        
 
     def _run(self):
+        self.run_button.config(state="disabled")
+        self.viewer_error.set("")
+
+        self.option.set("viewer", self.open_viewer.get())
+        self.postprocessor = Postprocessor(gui=self)
+
+        self.option.set("input_path",self.input_path.get())
+        self.option.set('output_path',self.output_path.get())
+
+        self.logger.debug(f'viewer : {self.viewer.get()} open_viewer : {self.open_viewer}')
+        if self.open_viewer and self.viewer.get() != self.config.get('default','viewer'):
+            try :
+                self.postprocessor.check_viewer(self.viewer.get())
+            except Exception as e:
+                self.logger.error(f"Viewer check failed: {e}")
+                self.viewer.set(self.config.get('default','viewer'))
+                self.success = False
+                self._update_result()
+                self.viewer_error.set(e)
+                raise
+        
         self.success = True
-        # self.stop_requested = False
+        self.stop_requested = False
         self._find_nii_files()
         self.option.set("suffix", self.suffix.get())
-        self.label_working_on.grid(row=4, column=0, pady=10)
-        self.label_status.grid(row=5, column=0, pady=10)
-        self.label_result.grid(row=6, column=0, columnspan=4, pady=10)
-        # self.stop_button.grid(row=3, column=2)
+        self.label_working_on.grid(row=5, column=0, pady=10)
+        self.label_status.grid(row=6, column=0, pady=10)
+        self.label_result.grid(row=7, column=0, columnspan=4, pady=10)
+        self.stop_button.grid(row=4, column=2)
         self.result_text.set("⌛ Prediction running...")
         self.label_result.config(fg="blue")
-        self.window.update()
-        i=0
+        t = threading.Thread(target=self._predict)
+        t.start()
+
+
+
+    def _predict(self):
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
+        i=0
         for img in self.nii_paths:
-            # if self._check_stop():
-            #     break
-            self.working_on_text.set(f"Working on: {os.path.basename(img)} ({i+1}/{len_nii_paths})")
-            self.window.update()
+            if self._check_stop():
+                break
+            s = f"Working on: {os.path.basename(img)} ({i+1}/{len_nii_paths})"
+            self.window.after(0,self._update_stringvar,self.working_on_text,s)
             self.logger.info(f"Starting processing on: {img}")
             try:
                 data, affine, bbox,original_shape, trsf_path, old_spacing, padding  = self.preprocessor.run(img,temp_dir)
-                # if self._check_stop():
-                #     break
+                if self._check_stop():
+                    break
                 data = self.inference.run(data)
-                # if self._check_stop():
-                #     break
-                self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
+                if self._check_stop():
+                    break
+                if self.open_viewer != None and i==0:
+                    self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
+                else : 
+                    self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
                 i+=1
             except Exception as e:
                 self.logger.error(f"Erreur lors du traitement de {img} : {e}")
                 self.success = False
-                break
+                raise
+        self.window.after(0,self._update_result)
         self.preprocessor.clean(temp_dir)
-        
+
+    def _update_result(self):
+        self.label_working_on.grid_remove()
+        self.label_status.grid_remove()
         if self.success:
             self.result_text.set("✓ Success")
             self.label_result.config(fg="green")
-            self.window.update()
         else:
-            self.result_text.set("✗ Failed")
-            self.label_result.config(fg="red")
-            self.window.update()
-    
+            if self.stop_requested:
+                self.result_text.set("🛑 Stopped by user")
+                self.label_result.config(fg="red")
+            else :
+                self.result_text.set("✗ Failed")
+                self.label_result.config(fg="red")
+        self.run_button.config(state="normal")
     def update_status(self,s):
-        self.status_text.set(s)
-        self.window.update()
+        self.window.after(0,self._update_stringvar,self.status_text,s)
 
+    def _update_stringvar(self,stringvar,s):
+        stringvar.set(s)
 
 
     def _check_device(self):

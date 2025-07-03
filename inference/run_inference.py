@@ -31,11 +31,12 @@ class Inference:
             deep_supervision=False,
         )
         self.network.initialize()
-        model_path = option.get("model_path","./models/model.pth")
+        model_path = option.get("model_path","./models/model_fp16.pth")
         self.logger.debug(f'model path : {model_path}')
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
         self.network.load_state_dict(checkpoint["network_weights"])
         self.logger.info("Checkpoint loaded successfully.")
+        self.logger.debug(self.device)
         self.network.to(self.device)
         self.network.eval()
         self.patch_size = patch_size

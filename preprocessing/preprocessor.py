@@ -185,9 +185,6 @@ class Preprocessor:
         data,padding,time = self._padding(data)
         self._print_duration(action_name,time)
 
-        
-
-
         return data, affine, bbox, original_shape, trsf_path, spacing, padding
 
 
