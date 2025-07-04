@@ -31,13 +31,13 @@ class Postprocessor:
         nibabel.save(out_img, output_file)
         return output_file, time.time()-start
     
-        def _convert_to_segmentation(self, data):
-            start = time.time()
-            data = data[0]
-            for i in range(data.shape[0]):
-                self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
-            data = np.argmax(data, axis=0).astype(np.uint8)
-            return data, time.time()-start
+    def _convert_to_segmentation(self, data):
+        start = time.time()
+        data = data[0]
+        for i in range(data.shape[0]):
+            self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
+        data = np.argmax(data, axis=0).astype(np.uint8)
+        return data, time.time()-start
     
     def _register_to_reference(self,img_path,trsf_path,ref):
         start = time.time()
