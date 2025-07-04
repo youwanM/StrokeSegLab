@@ -4,6 +4,7 @@ import os
 import numpy as np
 import time
 
+from manager.config_manager import Config
 from manager.option_manager import Option
 from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
@@ -15,7 +16,8 @@ class Postprocessor:
         self.logger =logging.getLogger()
         self.wrapper = AnimaWrapper()
         self.resampler = Resampler()
-        if self.option.get("viewer"):
+        self.config = Config()
+        if self.option.get("open_viewer"):
             self.viewer = Viewer()
         self.gui = gui
     
@@ -24,18 +26,18 @@ class Postprocessor:
         out_img = nibabel.Nifti1Image(data,affine)
         base_name = os.path.basename(input_path)
         base_name = base_name.split(".nii")[0]
-        suffix = self.option.get("suffix")
+        suffix = self.config.get("default","suffix")
         output_file = os.path.join(temp_dir, base_name + f"_{suffix}.nii.gz")
         nibabel.save(out_img, output_file)
         return output_file, time.time()-start
     
-    def _convert_to_segmentation(self, data):
-        start = time.time()
-        data = data[0]
-        for i in range(data.shape[0]):
-            self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
-        data = np.argmax(data, axis=0).astype(np.uint8)
-        return data, time.time()-start
+        def _convert_to_segmentation(self, data):
+            start = time.time()
+            data = data[0]
+            for i in range(data.shape[0]):
+                self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
+            data = np.argmax(data, axis=0).astype(np.uint8)
+            return data, time.time()-start
     
     def _register_to_reference(self,img_path,trsf_path,ref):
         start = time.time()
@@ -110,7 +112,7 @@ class Postprocessor:
         self._print_action(action_name)
         output_path,time = self._register_to_reference(nii_file,trsf_path,input_path)
         self._print_duration(action_name,time)
-
+        self.logger.debug(f"open viewer : {open_viewer}")
         if open_viewer:
             action_name="open viewer"
             self._print_action(action_name)

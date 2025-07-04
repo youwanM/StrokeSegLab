@@ -1,7 +1,9 @@
 import logging
+import sys
 import tempfile
 import tkinter as tk
 from tkinter import filedialog
+from tkinter import ttk
 import os
 
 from inference.run_inference import Inference
@@ -31,7 +33,7 @@ class GUIMain:
         self.window.title('nnUNet prediction')
         self.input_path = tk.StringVar(value="")
         self.output_path = tk.StringVar(value="")
-        self.suffix = tk.StringVar(value="seg")
+        self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
         self.open_viewer = tk.BooleanVar()
         self.viewer = tk.StringVar(value=self.config.get('default','viewer'))
         self.viewer_error = tk.StringVar(value="")
@@ -60,17 +62,24 @@ class GUIMain:
         self.entry_suffix = tk.Entry(self.frame, textvariable=self.suffix, width=20)
         self.entry_suffix.grid(row=2, column=1)
 
-        tk.Label(self.frame, text="Open viewer : ").grid(row=3, column=0, pady=10)
+        tk.Label(self.frame, text="Model : ").grid(row=3, column=0, pady=10)
+        self.models = self.config.get("default","models").split(',')
+        self.models = [m for m in self.models]
+        self.combo_models = ttk.Combobox(self.frame,values=self.models)
+        self.combo_models.current(self.models.index(self.config.get("default","model")))
+        self.combo_models.grid(row =3, column =1)
+
+        tk.Label(self.frame, text="Open viewer : ").grid(row=4, column=0, pady=10)
         viewer_button = tk.Checkbutton(self.frame, text="ON/OFF", variable=self.open_viewer)
-        viewer_button.grid(row=3,column=1)
+        viewer_button.grid(row=4,column=1)
         entry_viewer = tk.Entry(self.frame, textvariable=self.viewer, width=10)
-        entry_viewer.grid(row=3, column=2)
+        entry_viewer.grid(row=4, column=2)
         viewer_label = tk.Label(self.frame, textvariable=self.viewer_error)
-        viewer_label.grid(row=3, column=3, pady=10)
+        viewer_label.grid(row=4, column=3, pady=10)
         viewer_label.config(fg="red")
 
         self.run_button = tk.Button(self.frame, text='run', command=self._run)
-        self.run_button.grid(row=4,column=1)
+        self.run_button.grid(row=5,column=1)
 
         self.label_working_on = tk.Label(self.frame, textvariable=self.working_on_text, fg="blue")
         self.label_status = tk.Label(self.frame, textvariable=self.status_text)
@@ -119,17 +128,24 @@ class GUIMain:
         self.run_button.config(state="disabled")
         self.viewer_error.set("")
 
-        self.option.set("viewer", self.open_viewer.get())
+        model_name = self.combo_models.get()
+        if model_name not in self.models:
+            self.logger.error(f"{model_name} not in {self.models}")
+            sys.exit(1)
+        else:
+            self.config.set("default","model",model_name)
+            self.config.save()
+        self.option.set("open_viewer", self.open_viewer.get())
         self.postprocessor = Postprocessor(gui=self)
 
         self.option.set("input_path",self.input_path.get())
         self.option.set('output_path',self.output_path.get())
 
-        self.logger.debug(f'viewer : {self.viewer.get()} open_viewer : {self.open_viewer}')
-        if self.open_viewer and self.viewer.get() != self.config.get('default','viewer'):
+        self.logger.debug(f'viewer : {self.viewer.get()} open_viewer : {self.open_viewer.get()}')
+        if self.open_viewer.get() and self.viewer.get() != self.config.get('default','viewer'):
             try :
                 self.postprocessor.check_viewer(self.viewer.get())
-            except Exception as e:
+            except Exception as e: 
                 self.logger.error(f"Viewer check failed: {e}")
                 self.viewer.set(self.config.get('default','viewer'))
                 self.success = False
@@ -140,11 +156,13 @@ class GUIMain:
         self.success = True
         self.stop_requested = False
         self._find_nii_files()
-        self.option.set("suffix", self.suffix.get())
-        self.label_working_on.grid(row=5, column=0, pady=10)
-        self.label_status.grid(row=6, column=0, pady=10)
-        self.label_result.grid(row=7, column=0, columnspan=4, pady=10)
-        self.stop_button.grid(row=4, column=2)
+        if self.config.get("default","suffix")!=self.suffix.get():
+            self.config.set("default","suffix", self.suffix.get())
+            self.config.save()
+        self.label_working_on.grid(row=6, column=0, pady=10)
+        self.label_status.grid(row=7, column=0, pady=10)
+        self.label_result.grid(row=8, column=0, columnspan=4, pady=10)
+        self.stop_button.grid(row=5, column=2)
         self.result_text.set("⌛ Prediction running...")
         self.label_result.config(fg="blue")
         t = threading.Thread(target=self._predict)
@@ -169,7 +187,7 @@ class GUIMain:
                 data = self.inference.run(data)
                 if self._check_stop():
                     break
-                if self.open_viewer != None and i==0:
+                if self.open_viewer.get() and i==0:
                     self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
                 else : 
                     self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)

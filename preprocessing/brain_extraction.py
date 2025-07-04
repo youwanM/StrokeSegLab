@@ -1,12 +1,12 @@
-import os
 import time
-
+from manager.path import ATLAS_DIR
+import os
 class BrainExtracter:
 
-    def __init__(self,wrapper,atlas_path,atlas_mask_path="./anima_scripts/atlas_brain_mask.nrrd"):
+    def __init__(self,wrapper):
         self.wrapper = wrapper
-        self.atlas = atlas_path
-        self.atlas_mask = atlas_mask_path
+        self.atlas = os.path.join(ATLAS_DIR,"atlas.nrrd")
+        self.atlas_mask = os.path.join(ATLAS_DIR,"atlas_brain_mask.nrrd")
         self.pyramid_option = ["-p", "4", "-l", "1"]
         
 

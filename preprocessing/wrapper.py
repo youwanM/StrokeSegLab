@@ -1,17 +1,17 @@
 import logging
 import os
 import subprocess
+from manager.path import ANIMA_DIR
 
 class AnimaWrapper:
-    def __init__(self,anima_path="./anima_scripts"):
-        self.anima_path = anima_path
+    def __init__(self):
         self.logger = logging.getLogger()
 
     def run(self,command):
-        scripts = os.path.join(self.anima_path,command[0])
+        scripts = os.path.join(ANIMA_DIR,command[0])
         full_command = [scripts] + command[1:]
         try:
-            result = subprocess.run(
+            subprocess.run(
                 full_command,
                 check=True,
                 stdout=subprocess.DEVNULL,

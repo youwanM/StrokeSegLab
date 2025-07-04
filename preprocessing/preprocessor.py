@@ -6,6 +6,7 @@ from preprocessing.wrapper import AnimaWrapper
 from scipy.ndimage import binary_fill_holes
 from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, bounding_box_to_slice
 import time
+from manager.path import ATLAS_DIR
 
 import numpy as np
 import nibabel
@@ -14,14 +15,14 @@ import shutil
 import nibabel as nib
 
 class Preprocessor:
-    def __init__(self,gui=None,atlas_path="./anima_scripts/atlas.nrrd"):
+    def __init__(self,gui=None):
         self.logger = logging.getLogger()
         self.option = Option()
         self.resampler = Resampler()
         self.wrapper = AnimaWrapper()
-        self.atlas_path = atlas_path
+        self.atlas_path = os.path.join(ATLAS_DIR,"atlas.nrrd")
         self.gui = gui
-        self.brain_extracter = BrainExtracter(self.wrapper,atlas_path)
+        self.brain_extracter = BrainExtracter(self.wrapper)
     
     def _load_img(self,img_path):
         img = nibabel.load(img_path)

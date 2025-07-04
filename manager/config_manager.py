@@ -1,11 +1,15 @@
 import configparser
 from manager.singleton import SingletonMeta
+from manager.path import CONFIG_FILE
 
 class Config(metaclass=SingletonMeta):
-    def __init__(self,config_path="./config/config.ini"):
-        self.config_path = config_path
+    def __init__(self):
+        self.config_path = CONFIG_FILE
         self.config = configparser.ConfigParser()
-        self.config.read(config_path)
+        read_files = self.config.read(CONFIG_FILE)
+        if not read_files:
+            raise FileNotFoundError(f"Le fichier de config '{CONFIG_FILE}' est introuvable ou illisible.")
+
     
     def get(self, section: str, key: str):
         return self.config[section][key]

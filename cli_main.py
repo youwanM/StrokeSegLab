@@ -1,24 +1,37 @@
 import argparse
 import time
 from inference.run_inference import Inference
+from manager.config_manager import Config
 from manager.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 from logger.logger import setup_logger
+from manager.path import MODEL_DIR
 import torch
 import os
 import logging
 import tempfile
+import sys
 
 class CLIMain:
-    def __init__(self, input_path, output_path = "./", model_path="./models/model_fp16.pth",patch_size=[128,128,128],suffix="seg",viewer=None):
+    def __init__(self, input_path, output_path = "./", model_name= None,suffix=None,viewer=None):
         setup_logger(True)
         self.logger = logging.getLogger()
         self.option = Option()
+        config = Config()
         self.option.set("input_path",input_path)
         self.option.set("output_path",output_path)
-        self.option.set("model_path",model_path)
-        self.option.set("suffix", suffix)
+        if model_name !=None:
+            models = config.get('default', 'models').split(',')
+            models = [m for m in models]
+            if model_name not in models:
+                self.logger.error(f"{model_name} not in {models}")
+                sys.exit(1)
+            else:
+                config.set("default","model",model_name)
+                config.save()
+        if suffix != None:
+            config.set("default","suffix",suffix)
         if viewer != None:
             self.option.set("open_viewer",True)
         else :
@@ -26,7 +39,7 @@ class CLIMain:
         self.viewer = viewer
         self.option.set("device",self._check_device())
         self.preprocessor = Preprocessor()
-        self.inference = Inference(patch_size=patch_size)
+        self.inference = Inference()
         self.postprocessor = Postprocessor()
     
     def _check_device(self):
@@ -88,9 +101,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run segmentation pipeline")
     parser.add_argument("-i", "--input", required=True, help="Input image path (required)")
     parser.add_argument("-o", "--output", help="Output folder (optional)")
-    parser.add_argument("-m", "--model", help="Model path (optional)")
+    parser.add_argument("-m", "--model", help="Model name (optional)")
     parser.add_argument("-s", "--suffix", help="output name suffix (optional)")
-    parser.add_argument("--patch_size", nargs=3, type=int, metavar=('X', 'Y', 'Z'), help="Patch size, 3 ints (optional)")
     parser.add_argument("-V", "--viewer", nargs="?",const="default",help="Specify a viewer name, or use default if none is given")
     return parser.parse_args()
 
@@ -100,9 +112,7 @@ if __name__ == "__main__":
     if args.output:
         kwargs['output_path'] = args.output
     if args.model:
-        kwargs['model_path'] = args.model
-    if args.patch_size:
-        kwargs['patch_size'] = args.patch_size
+        kwargs['model_name'] = args.model
     if args.suffix:
         kwargs['suffix'] = args.suffix
     if args.viewer:

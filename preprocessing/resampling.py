@@ -8,12 +8,12 @@ from scipy.ndimage import map_coordinates
 import pandas as pd
 
 class Resampler:
-    def __init__(self,separate_z_anisotropy_threshold=3.0,force_separate_z=None,is_seg=False,order=1,order_z=0):
-        self.separate_z_anisotropy_threshold = separate_z_anisotropy_threshold
-        self.force_separate_z = force_separate_z
-        self.is_seg=is_seg
-        self.order = order
-        self.order_z=order_z
+    def __init__(self):
+        self.separate_z_anisotropy_threshold = 3.0
+        self.force_separate_z = None
+        self.is_seg=False
+        self.order = 1
+        self.order_z= 0
 
         
     

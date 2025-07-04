@@ -1,13 +1,17 @@
 import logging
+import os
 from inference.unet import ResidualEncoderUNet
+from manager.config_manager import Config
 from manager.option_manager import Option
 import torch
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import time
 
+from manager.path import MODEL_DIR
+
 class Inference:
-    def __init__(self,gui=None,patch_size=[128,128,128]):
+    def __init__(self,gui=None):
         self.logger=logging.getLogger()
         option = Option()
         self.device = option.get("device","cpu")
@@ -31,7 +35,9 @@ class Inference:
             deep_supervision=False,
         )
         self.network.initialize()
-        model_path = option.get("model_path","./models/model_fp16.pth")
+        config = Config()
+        model = config.get("default","model")
+        model_path = os.path.join(MODEL_DIR,f"{model}.pth")
         self.logger.debug(f'model path : {model_path}')
         checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
         self.network.load_state_dict(checkpoint["network_weights"])
@@ -39,7 +45,7 @@ class Inference:
         self.logger.debug(self.device)
         self.network.to(self.device)
         self.network.eval()
-        self.patch_size = patch_size
+        self.patch_size = [128,128,128]
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
