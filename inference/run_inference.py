@@ -1,9 +1,8 @@
 import logging
 import os
-from inference.unet import ResidualEncoderUNet
+import onnxruntime as ort
 from manager.config_manager import Config
 from manager.option_manager import Option
-import torch
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import time
@@ -17,34 +16,23 @@ class Inference:
         self.device = option.get("device","cpu")
         self.gui = gui
 
-        self.network = ResidualEncoderUNet(
-            input_channels=1,
-            n_stages=6,
-            features_per_stage=[32, 64, 128, 256, 320, 320],
-            conv_op=torch.nn.Conv3d,
-            kernel_sizes=[[3, 3, 3] for _ in range(6)],
-            strides=[[1, 1, 1], [2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
-            n_blocks_per_stage=[1, 3, 4, 6, 6, 6],
-            num_classes=2,
-            n_conv_per_stage_decoder=[1, 1, 1, 1, 1],
-            conv_bias=True,
-            norm_op=torch.nn.InstanceNorm3d,
-            norm_op_kwargs={"eps": 1e-5, "affine": True},
-            nonlin=torch.nn.LeakyReLU,
-            nonlin_kwargs={"inplace": True},
-            deep_supervision=False,
-        )
-        self.network.initialize()
+        # Initialize ONNX Runtime session
         config = Config()
         model = config.get("default","model")
-        model_path = os.path.join(MODEL_DIR,f"{model}.pth")
-        self.logger.debug(f'model path : {model_path}')
-        checkpoint = torch.load(model_path, map_location="cpu", weights_only=False)
-        self.network.load_state_dict(checkpoint["network_weights"])
-        self.logger.info("Checkpoint loaded successfully.")
-        self.logger.debug(self.device)
-        self.network.to(self.device)
-        self.network.eval()
+        model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
+        self.logger.debug(f'ONNX model path : {model_path}')
+        
+        # Set up ONNX Runtime providers based on device
+        if self.device == "cuda":
+            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        else:
+            providers = ['CPUExecutionProvider']
+            
+        self.ort_session = ort.InferenceSession(model_path, providers=providers)
+        self.logger.info("ONNX model loaded successfully.")
+        self.logger.debug(f"Using device: {self.device}")
+        self.logger.debug(f"ONNX providers: {self.ort_session.get_providers()}")
+        
         self.patch_size = [128,128,128]
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
@@ -72,20 +60,19 @@ class Inference:
 
         return steps
     
-    def _compute_gaussian(self,patch_size, dtype=torch.float16,sigma_scale=1./8, value_scaling_factor=10):
+    def _compute_gaussian(self, patch_size, dtype=np.float32, sigma_scale=1./8, value_scaling_factor=10):
         tmp = np.zeros(patch_size)
         center_coords = [i // 2 for i in patch_size]
         sigmas = [i * sigma_scale for i in patch_size]
         tmp[tuple(center_coords)] = 1
         gaussian_importance_map = gaussian_filter(tmp, sigmas, 0, mode='constant', cval=0)
 
-        gaussian_importance_map = torch.from_numpy(gaussian_importance_map)
-
-        gaussian_importance_map /= (torch.max(gaussian_importance_map) / value_scaling_factor)
-        gaussian_importance_map = gaussian_importance_map.to(device=self.device, dtype=dtype)
+        gaussian_importance_map = gaussian_importance_map.astype(dtype)
+        gaussian_importance_map /= (np.max(gaussian_importance_map) / value_scaling_factor)
+        
         # gaussian_importance_map cannot be 0, otherwise we may end up with nans!
         mask = gaussian_importance_map == 0
-        gaussian_importance_map[mask] = torch.min(gaussian_importance_map[~mask])
+        gaussian_importance_map[mask] = np.min(gaussian_importance_map[~mask])
         return gaussian_importance_map
 
     def run(self,data):
@@ -95,20 +82,28 @@ class Inference:
         gaussian = self._compute_gaussian(self.patch_size)
         total_patches = len(steps[0]) * len(steps[1]) * len(steps[2])
         count = 0
-        output = torch.zeros(1,2, x, y, z)
-        normalization_map = torch.zeros(1, 1, x, y, z)
+        output = np.zeros((1, 2, x, y, z))
+        normalization_map = np.zeros((1, 1, x, y, z))
         start_time = time.time()
         last_time = start_time
-        for x in steps[0]:
-            for y in steps[1]:
-                for z in steps[2]:
+        
+        # Get ONNX model input name
+        input_name = self.ort_session.get_inputs()[0].name
+        
+        for x_coord in steps[0]:
+            for y_coord in steps[1]:
+                for z_coord in steps[2]:
                     count+=1
-                    patch = data[:,x:x+self.patch_size[0],y:y+self.patch_size[1],z:z+self.patch_size[2]]
-                    patch=torch.from_numpy(patch).unsqueeze(0).to(self.device)
-                    with torch.no_grad():
-                        pred = self.network(patch)*gaussian
-                        output[:, :, x:x+self.patch_size[0], y:y+self.patch_size[1], z:z+self.patch_size[2]] += pred.cpu()
-                        normalization_map[:, :, x:x+self.patch_size[0], y:y+self.patch_size[1], z:z+self.patch_size[2]] += gaussian.cpu()
+                    patch = data[:,x_coord:x_coord+self.patch_size[0],y_coord:y_coord+self.patch_size[1],z_coord:z_coord+self.patch_size[2]]
+                    patch = np.expand_dims(patch, axis=0).astype(np.float32)
+                    
+                    # Run ONNX inference
+                    pred = self.ort_session.run(None, {input_name: patch})[0]
+                    pred = pred * gaussian
+                    
+                    output[:, :, x_coord:x_coord+self.patch_size[0], y_coord:y_coord+self.patch_size[1], z_coord:z_coord+self.patch_size[2]] += pred
+                    normalization_map[:, :, x_coord:x_coord+self.patch_size[0], y_coord:y_coord+self.patch_size[1], z_coord:z_coord+self.patch_size[2]] += gaussian
+                    
                     now = time.time()
                     total_elapsed = now - start_time
                     iter_time = now - last_time
@@ -117,6 +112,6 @@ class Inference:
                     if(self.gui !=None):
                         self.gui.update_status(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
                     last_time = now
-        output = output.numpy()
-        output /= normalization_map.numpy()
+        
+        output /= normalization_map
         return output
