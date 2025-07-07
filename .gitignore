@@ -7,3 +7,6 @@ anima
 *.log
 plans.json
 dice.py
+dist
+build
+*.spec
