@@ -227,6 +227,3 @@ class GUIMain:
             device = torch.device("cpu")
         self.logger.info(f"Using device: {device}")
         return device
-
-if __name__ == "__main__":
-  GUIMain()

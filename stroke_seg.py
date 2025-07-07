@@ -1,12 +1,12 @@
 import argparse
 import time
+from gui.gui import GUIMain
 from inference.run_inference import Inference
 from manager.config_manager import Config
 from manager.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 from logger.logger import setup_logger
-from manager.path import MODEL_DIR
 import torch
 import os
 import logging
@@ -98,7 +98,7 @@ class CLIMain:
         self.logger.info(f"Total prediction time: {final:.2f} seconds")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Run segmentation pipeline")
+    parser = argparse.ArgumentParser(description="Run segmentation pipeline", epilog="If no arguments are provided, the graphical interface will be launched by default")
     parser.add_argument("-i", "--input", required=True, help="Input image path (required)")
     parser.add_argument("-o", "--output", help="Output folder (optional)")
     parser.add_argument("-m", "--model", help="Model name (optional)")
@@ -107,18 +107,21 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
-    args = parse_args()
-    kwargs = {}
-    if args.output:
-        kwargs['output_path'] = args.output
-    if args.model:
-        kwargs['model_name'] = args.model
-    if args.suffix:
-        kwargs['suffix'] = args.suffix
-    if args.viewer:
-        kwargs['viewer'] = args.viewer
-    app = CLIMain(
-        input_path=args.input,
-        **kwargs
-    )
-    app.run()
+    if len(sys.argv) == 1:
+        GUIMain()
+    else:
+        args = parse_args()
+        kwargs = {}
+        if args.output:
+            kwargs['output_path'] = args.output
+        if args.model:
+            kwargs['model_name'] = args.model
+        if args.suffix:
+            kwargs['suffix'] = args.suffix
+        if args.viewer:
+            kwargs['viewer'] = args.viewer
+        app = CLIMain(
+            input_path=args.input,
+            **kwargs
+        )
+        app.run()
