@@ -4,6 +4,7 @@ import tempfile
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
+import onnxruntime as ort
 import os
 
 from inference.run_inference import Inference
@@ -12,7 +13,6 @@ from manager.config_manager import Config
 from manager.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
-import torch
 import threading
 
 class GUIMain:
@@ -221,9 +221,10 @@ class GUIMain:
 
 
     def _check_device(self):
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        else:
-            device = torch.device("cpu")
-        self.logger.info(f"Using device: {device}")
+        available_providers = ort.get_available_providers()
+        if 'CUDAExecutionProvider' in available_providers:
+            device = 'CUDAExecutionProvider'
+        else : 
+            device = 'CPUExecutionProvider'
+        self.logger.info(f'using device : {device}')
         return device

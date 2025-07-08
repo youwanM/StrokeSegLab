@@ -7,7 +7,7 @@ from manager.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 from logger.logger import setup_logger
-import torch
+import onnxruntime as ort
 import os
 import logging
 import tempfile
@@ -43,12 +43,14 @@ class CLIMain:
         self.postprocessor = Postprocessor()
     
     def _check_device(self):
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-        else:
-            device = torch.device("cpu")
-        self.logger.info(f"Using device: {device}")
+        available_providers = ort.get_available_providers()
+        if 'CUDAExecutionProvider' in available_providers:
+            device = 'CUDAExecutionProvider'
+        else : 
+            device = 'CPUExecutionProvider'
+        self.logger.info(f'using device : {device}')
         return device
+
     
     def _find_nii_files(self):
         nii_paths = []

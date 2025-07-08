@@ -4,7 +4,7 @@ from preprocessing.brain_extraction import BrainExtracter
 from preprocessing.resampling import Resampler
 from preprocessing.wrapper import AnimaWrapper
 from scipy.ndimage import binary_fill_holes
-from acvl_utils.cropping_and_padding.bounding_boxes import get_bbox_from_mask, bounding_box_to_slice
+from preprocessing.utils import get_bbox_from_mask, bounding_box_to_slice
 import time
 from manager.path import ATLAS_DIR
 

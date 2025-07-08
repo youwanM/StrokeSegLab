@@ -13,7 +13,7 @@ class Inference:
     def __init__(self,gui=None):
         self.logger=logging.getLogger()
         option = Option()
-        self.device = option.get("device","cpu")
+        self.device = option.get("device")
         self.gui = gui
 
         # Initialize ONNX Runtime session
@@ -23,14 +23,10 @@ class Inference:
         self.logger.debug(f'ONNX model path : {model_path}')
         
         # Set up ONNX Runtime providers based on device
-        if self.device == "cuda":
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        else:
-            providers = ['CPUExecutionProvider']
-            
+        providers = [self.device]
+        self.logger.debug(f'providers : {providers}')
         self.ort_session = ort.InferenceSession(model_path, providers=providers)
         self.logger.info("ONNX model loaded successfully.")
-        self.logger.debug(f"Using device: {self.device}")
         self.logger.debug(f"ONNX providers: {self.ort_session.get_providers()}")
         
         self.patch_size = [128,128,128]
