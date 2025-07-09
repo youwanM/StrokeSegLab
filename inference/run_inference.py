@@ -11,10 +11,14 @@ from manager.path import MODEL_DIR
 
 class Inference:
     def __init__(self,gui=None):
-        ort.preload_dlls(directory='')
+        
+        
         self.logger=logging.getLogger()
         option = Option()
         self.device = option.get("device")
+
+        if self.device == "CUDAExecutionProvider":
+            ort.preload_dlls(directory='')
         self.gui = gui
 
         # Initialize ONNX Runtime session
