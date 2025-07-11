@@ -17,6 +17,9 @@ class CLIMain:
     def __init__(self, input_path, output_path = "./", model_name= None,suffix=None,viewer=None):
         setup_logger(True)
         self.logger = logging.getLogger()
+        print("="*60)
+        print("⚠️  This tool is for research purpose only ! ")
+        print("="*60)
         self.option = Option()
         config = Config()
         self.option.set("input_path",input_path)
@@ -42,7 +45,7 @@ class CLIMain:
         self.inference = Inference()
         self.postprocessor = Postprocessor()
     
-    def _check_device(self):
+    def _check_device(self):    
         available_providers = ort.get_available_providers()
         if 'CUDAExecutionProvider' in available_providers:
             device = 'CUDAExecutionProvider'

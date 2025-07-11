@@ -2,15 +2,16 @@ import logging
 import sys
 import tempfile
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+from tkinter import Menu, filedialog, ttk, messagebox
 import onnxruntime as ort
 import os
 
+from gui.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
 from inference.run_inference import Inference
 from logger.logger import setup_logger
 from manager.config_manager import Config
 from manager.option_manager import Option
+from manager.path import LOGO
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import threading
@@ -19,6 +20,9 @@ class GUIMain:
     def __init__(self):
         setup_logger(False)
         self.logger = logging.getLogger()
+        self.logger.warning("="*60)
+        self.logger.warning("This tool is for research purpose only ! ")
+        self.logger.warning("="*60)
         self.option = Option()
         self.config = Config()
         self.option.set("device",self._check_device())
@@ -29,8 +33,7 @@ class GUIMain:
         self.option.set("output_path","./")
 
         self.window = tk.Tk()
-        self.window.minsize(800, 150)
-        self.window.title('nnUNet prediction')
+        self.window.title(APP_NAME)
         self.input_path = tk.StringVar(value="")
         self.output_path = tk.StringVar(value="")
         self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
@@ -41,6 +44,13 @@ class GUIMain:
         self.status_text = tk.StringVar()
         self.working_on_text = tk.StringVar()
         self.result_text = tk.StringVar()
+
+        menubar = Menu(self.window)
+        help_menu = Menu(menubar, tearoff=0)
+        help_menu.add_command(label='Help', command=self._show_help)
+        help_menu.add_command(label="About", command=self._show_about)
+        menubar.add_cascade(label='Help',menu=help_menu)
+        self.window.config(menu=menubar)
 
         self.frame = tk.Frame(self.window)
         self.frame.grid(row=0, column=0,padx=10,pady=10)
@@ -86,9 +96,44 @@ class GUIMain:
         self.label_result = tk.Label(self.frame, textvariable=self.result_text, font=("Arial", 14, "bold"))
         self.stop_requested = False
         self.stop_button = tk.Button(self.frame, text="Stop", command=self._stop)
-
+        messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
         self.window.mainloop()
     
+    def _show_about(self):
+        size = 500
+        about_window= tk.Toplevel(self.window)
+        tk.Label(about_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
+        tk.Label(about_window,text=VERSION).pack(pady=10)
+        about_window.logo = tk.PhotoImage(file=LOGO)
+        tk.Label(about_window,image=about_window.logo).pack()
+        notebook = ttk.Notebook(about_window)
+        notebook.pack(expand=True, fill='both', padx=10, pady=10)
+        about_window.title("About")
+        tk.Button(about_window, text="Close", command=about_window.destroy).pack(anchor='e',padx=10,pady=[0,10])
+
+        developers_frame = tk.Frame(notebook)
+        notebook.add(developers_frame, text='Developers')
+        tk.Label(developers_frame, text=DEVELOPERS,justify="left",wraplength=size).pack(anchor='w')
+
+        license_frame = tk.Frame(notebook)
+        notebook.add(license_frame, text = 'License')
+        tk.Label(license_frame, text = LICENSE, justify='left',wraplength=size ).pack(anchor='w')
+
+        publications_frame = tk.Frame(notebook)
+        notebook.add(publications_frame, text = 'Publications')
+        for title, citation in PUBLICATIONS:
+            tk.Label(publications_frame, text=title, font=("Arial", 12, "bold"), justify='left', wraplength=size).pack(anchor='w', pady=(5, 0))
+            tk.Label(publications_frame, text=citation, justify='left', wraplength=size).pack(anchor='w', pady=(0, 5))
+
+    def _show_help(self):
+        size =500
+        help_window= tk.Toplevel(self.window)
+        tk.Label(help_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
+        tk.Label(help_window,text=VERSION).pack(pady=10)
+        help_window.logo = tk.PhotoImage(file=LOGO)
+        tk.Label(help_window, text = HELP, justify='left',wraplength=size ).pack(anchor='w')
+        tk.Button(help_window, text="Close", command=help_window.destroy).pack(anchor='e',padx=10,pady=[0,10])
+
     def _select_input_folder(self):
         self.input_path.set(filedialog.askdirectory(title='input path'))
         
