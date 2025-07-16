@@ -10,4 +10,6 @@ dice.py
 dist
 build
 *.spec
-requirements.txt
+*.onnx
+venv
+venvonnx
