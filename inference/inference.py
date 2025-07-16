@@ -22,19 +22,24 @@ class Inference:
         self.gui = gui
 
         # Initialize ONNX Runtime session
-        config = Config()
-        model = config.get("default","model")
-        model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
-        self.logger.debug(f'ONNX model path : {model_path}')
-        
-        # Set up ONNX Runtime providers based on device
-        providers = [self.device]
-        self.logger.debug(f'providers : {providers}')
-        self.ort_session = ort.InferenceSession(model_path, providers=providers)
-        self.logger.info("ONNX model loaded successfully.")
-        self.logger.debug(f"ONNX providers: {self.ort_session.get_providers()}")
+        self.config = Config()
+        self._update_models()
         
         self.patch_size = [128,128,128]
+    
+    def _update_models(self):
+        models = []
+        for _, _, files in os.walk(MODEL_DIR):
+            for f in files:
+                if f.endswith(".onnx"):
+                    models.append(f[:-5])
+        if models != self.config.get("default","models"):
+            if self.config.get("default","model") not in models:
+                self.config.set("default","model",models[0])
+            models = ",".join(models)
+            self.config.set("default","models",models)
+            self.config.save()
+
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
@@ -79,6 +84,14 @@ class Inference:
     def run(self,data):
         assert data.ndim == 4, f"Expected 4D input (c, x, y, z), got {data.shape}"
         _, x, y, z = data.shape
+        model = self.config.get("default","model")
+        model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
+        self.logger.debug(f'ONNX model path : {model_path}')
+        
+        # Set up ONNX Runtime providers based on device
+        providers = [self.device]
+        self.ort_session = ort.InferenceSession(model_path, providers=providers)
+        self.logger.info("ONNX model loaded successfully.")
         steps = self._compute_steps((x, y, z),self.patch_size)
         gaussian = self._compute_gaussian(self.patch_size)
         total_patches = len(steps[0]) * len(steps[1]) * len(steps[2])
@@ -95,6 +108,8 @@ class Inference:
             for y_coord in steps[1]:
                 for z_coord in steps[2]:
                     count+=1
+                    if self.gui != None and self.gui.check_stop():
+                        raise InterruptedError("Action was cancelled by the user.")
                     patch = data[:,x_coord:x_coord+self.patch_size[0],y_coord:y_coord+self.patch_size[1],z_coord:z_coord+self.patch_size[2]]
                     patch = np.expand_dims(patch, axis=0).astype(np.float32)
                     
@@ -110,7 +125,9 @@ class Inference:
                     iter_time = now - last_time
                     remaining = (total_elapsed / count) * (total_patches - count)
                     self.logger.info(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
-                    if(self.gui !=None):
+                    if self.gui !=None:
+                        if self.gui.check_stop():
+                            raise InterruptedError("Action was cancelled by the user.")
                         self.gui.update_status(f"Patch {count}/{total_patches} done | " f"Iter time: {iter_time:.2f}s | " f"Total: {total_elapsed:.2f}s | " f"ETA: {remaining:.2f}s")
                     last_time = now
         

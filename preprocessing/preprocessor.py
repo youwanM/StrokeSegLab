@@ -34,11 +34,6 @@ class Preprocessor:
         if data.ndim==3:
             data = np.expand_dims(data,axis=0)
         return data, spacing, affine, original_shape
-    def _print_shape(self,img_path,etape):
-        img = nibabel.load(img_path)
-        data = img.get_fdata().astype("float32")
-        shape=data.shape
-        self.logger.debug(f'shape de l\'image {shape} à l\'étape {etape}')
     
     def _z_score_norm(self,data, seg=None):
         start = time.time()
@@ -136,57 +131,66 @@ class Preprocessor:
         return padded_data, padding, time.time()-start
 
     
-    def run(self,img_path,temp_dir):
+    def run(self,img_path,temp_dir,bet_only=False):
         prefix = os.path.join(temp_dir,self._get_image_basename(img_path))
+        if not prefix.endswith("_BET"):
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+            action_name="brain extraction"
+            self._print_action(action_name)
+            masked_brain, time = self.brain_extracter.run(img_path,prefix)
+            self._print_duration(action_name,time)
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+        else :
+            masked_brain = shutil.copy(img_path,temp_dir)
+        if not bet_only:
+            action_name="bias correction"
+            self._print_action(action_name)
+            n4_output,time=self._bias_correct(masked_brain)
+            self._print_duration(action_name,time)
+
+            action_name="reorient to RAS"
+            self._print_action(action_name)
+            RAS_output,time=self._reorient_RAS(n4_output)
+            self._print_duration(action_name,time)
+
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+            action_name="register to MNI"
+            self._print_action(action_name)
+            MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path)
+            self._print_duration(action_name,time)
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+
         
-        self._print_shape(img_path,"initiale")
-        action_name="brain extraction"
-        self._print_action(action_name)
-        masked_brain, time = self.brain_extracter.run(img_path,prefix)
-        self._print_duration(action_name,time)
+            data, spacing, affine, original_shape = self._load_img(MNI_output)
 
-        self._print_shape(masked_brain,action_name)
+            data, seg, bbox = self._crop_to_nonzero(data)
+            
+            action_name="resampling"
+            new_spacing = (1.0, 1.0, 1.0)
+            self._print_action(action_name)
+            data, time = self.resampler.run(data,spacing,new_spacing)
+            self._print_duration(action_name,time)
 
-        action_name="bias correction"
-        self._print_action(action_name)
-        n4_output,time=self._bias_correct(masked_brain)
-        self._print_duration(action_name,time)
-        self._print_shape(n4_output,action_name)
+            action_name="Z score name"
+            self._print_action(action_name)
+            data, time = self._z_score_norm(data,seg)
+            self._print_duration(action_name,time)
+            bbox = tuple(slice(start, end) for start, end in bbox)
 
-        action_name="reorient to RAS"
-        self._print_action(action_name)
-        RAS_output,time=self._reorient_RAS(n4_output)
-        self._print_duration(action_name,time)
-        self._print_shape(RAS_output,action_name)
-
-        action_name="register to MNI"
-        self._print_action(action_name)
-        MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path)
-        self._print_duration(action_name,time)
-        self._print_shape(MNI_output,action_name)
-
-        data, spacing, affine, original_shape = self._load_img(MNI_output)
-
-        data, seg, bbox = self._crop_to_nonzero(data)
-        
-        action_name="resampling"
-        new_spacing = (1.0, 1.0, 1.0)
-        self._print_action(action_name)
-        data, time = self.resampler.run(data,spacing,new_spacing)
-        self._print_duration(action_name,time)
-
-        action_name="Z score name"
-        self._print_action(action_name)
-        data, time = self._z_score_norm(data,seg)
-        self._print_duration(action_name,time)
-        bbox = tuple(slice(start, end) for start, end in bbox)
-
-        action_name="padding"
-        self._print_action(action_name)
-        data,padding,time = self._padding(data)
-        self._print_duration(action_name,time)
-
-        return data, affine, bbox, original_shape, trsf_path, spacing, padding
+            action_name="padding"
+            self._print_action(action_name)
+            data,padding,time = self._padding(data)
+            self._print_duration(action_name,time)
+            if self.option.get("save_bet"):
+                shutil.copy(masked_brain,self.option.get("output_path"))
+                
+            return data, affine, bbox, original_shape, trsf_path, spacing, padding
+        else : 
+            shutil.copy(masked_brain,self.option.get("output_path"))
 
 
     def clean(self,temp_dir):

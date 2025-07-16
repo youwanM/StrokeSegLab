@@ -12,3 +12,4 @@ build
 *.spec
 *.onnx
 venv
+venvonnx
