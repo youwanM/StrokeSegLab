@@ -17,8 +17,7 @@ class Postprocessor:
         self.wrapper = AnimaWrapper()
         self.resampler = Resampler()
         self.config = Config()
-        if self.option.get("open_viewer"):
-            self.viewer = Viewer()
+        self.viewer = Viewer()
         self.gui = gui
     
     def _save_img(self,temp_dir,data,input_path,affine):
@@ -75,6 +74,15 @@ class Postprocessor:
     
     def check_viewer(self, viewer):
         self.viewer.check_viewer(viewer)
+    
+    def _get_image_basename(self,img_path):
+        filename = os.path.basename(img_path)
+        if filename.endswith(".nii.gz"):
+            return filename[:-7]
+        elif filename.endswith(".nii"):
+            return filename[:-4]
+        else:
+            return os.path.splitext(filename)[0]
 
 
     def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,open_viewer=False):
@@ -103,14 +111,19 @@ class Postprocessor:
         data = data.squeeze(0)
         self._print_duration(action_name,time)
 
+        basename = self._get_image_basename(input_path)
+        if basename.endswith("_BET"):
+            new_path = os.path.join(os.path.dirname(input_path),basename[:-4]+'.nii.gz')
+        else : 
+            new_path = input_path
         action_name="saving image to nii"
         self._print_action(action_name)
-        nii_file, time = self._save_img(temp_dir,data,input_path,affine)
+        nii_file, time = self._save_img(temp_dir,data,new_path,affine)
         self._print_duration(action_name,time)
 
         action_name="register to reference"
         self._print_action(action_name)
-        output_path,time = self._register_to_reference(nii_file,trsf_path,input_path)
+        output_path,time = self._register_to_reference(nii_file,trsf_path,new_path)
         self._print_duration(action_name,time)
         self.logger.debug(f"open viewer : {open_viewer}")
         if open_viewer:

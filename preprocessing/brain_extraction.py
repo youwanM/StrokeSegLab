@@ -13,7 +13,7 @@ class BrainExtracter:
     def run(self,img_path,prefix):
         start = time.time()
         brainMask = prefix + "_brainMask.nii.gz"
-        maskedBrain = prefix + "_masked.nii.gz"
+        maskedBrain = prefix + "_BET.nii.gz"
 
         command = ["animaPyramidalBMRegistration","-m",self.atlas,"-r",img_path,"-o",prefix+"_rig.nrrd","-O",prefix+"_rig_tr.txt","--sp","3"] + self.pyramid_option
         self.wrapper.run(command)

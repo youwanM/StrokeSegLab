@@ -10,5 +10,6 @@ dice.py
 dist
 build
 *.spec
+*.onnx
 venv
 venvonnx
