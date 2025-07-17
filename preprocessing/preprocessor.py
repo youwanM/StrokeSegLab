@@ -65,9 +65,9 @@ class Preprocessor:
         else:
             return os.path.splitext(filename)[0]
         
-    def _register_to_reference(self,img_path,ref):
+    def _register_to_reference(self,img_path,ref,type):
         start = time.time()
-        output_path= img_path.replace('.nii.gz', 'MNI.nii.gz')
+        output_path= img_path.replace('.nii.gz', type+'.nii.gz')
         trsf_path = output_path.replace('.nii.gz', '.txt')
         command=["animaPyramidalBMRegistration","-m",img_path,"-r",ref,"-o",output_path,"-O",trsf_path]
         self.wrapper.run(command)
@@ -130,68 +130,109 @@ class Preprocessor:
         padded_data = np.expand_dims(padded_data, axis=0)
         return padded_data, padding, time.time()-start
 
-    
-    def run(self,img_path,temp_dir,bet_only=False):
-        prefix = os.path.join(temp_dir,self._get_image_basename(img_path))
+    def run(self,t1,flair,temp_dir,bet_only=False):
+        
+        prefix = os.path.join(temp_dir,self._get_image_basename(t1))
         if not prefix.endswith("_BET"):
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
             action_name="brain extraction"
             self._print_action(action_name)
-            masked_brain, time = self.brain_extracter.run(img_path,prefix)
+            masked_t1, time = self.brain_extracter.run(t1,prefix)
             self._print_duration(action_name,time)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
         else :
-            masked_brain = shutil.copy(img_path,temp_dir)
+            masked_t1 = shutil.copy(t1,temp_dir)
         if not bet_only:
-            action_name="bias correction"
-            self._print_action(action_name)
-            n4_output,time=self._bias_correct(masked_brain)
-            self._print_duration(action_name,time)
-
-            action_name="reorient to RAS"
-            self._print_action(action_name)
-            RAS_output,time=self._reorient_RAS(n4_output)
-            self._print_duration(action_name,time)
-
-            if self.gui != None and self.gui.check_stop():
-                raise InterruptedError("Action was cancelled by the user.")
-            action_name="register to MNI"
-            self._print_action(action_name)
-            MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path)
-            self._print_duration(action_name,time)
-            if self.gui != None and self.gui.check_stop():
-                raise InterruptedError("Action was cancelled by the user.")
-
-        
-            data, spacing, affine, original_shape = self._load_img(MNI_output)
-
-            data, seg, bbox = self._crop_to_nonzero(data)
-            
-            action_name="resampling"
-            new_spacing = (1.0, 1.0, 1.0)
-            self._print_action(action_name)
-            data, time = self.resampler.run(data,spacing,new_spacing)
-            self._print_duration(action_name,time)
-
-            action_name="Z score name"
-            self._print_action(action_name)
-            data, time = self._z_score_norm(data,seg)
-            self._print_duration(action_name,time)
-            bbox = tuple(slice(start, end) for start, end in bbox)
-
-            action_name="padding"
-            self._print_action(action_name)
-            data,padding,time = self._padding(data)
-            self._print_duration(action_name,time)
+            data_t1, affine, bbox, original_shape, trsf_path, spacing, padding = self._preprocess_modality(masked_t1)
             if self.option.get("save_bet"):
-                shutil.copy(masked_brain,self.option.get("output_path"))
-                
-            return data, affine, bbox, original_shape, trsf_path, spacing, padding
+                shutil.copy(masked_t1,self.option.get("output_path"))
         else : 
-            shutil.copy(masked_brain,self.option.get("output_path"))
+            shutil.copy(masked_t1,self.option.get("output_path"))
 
+        if self.option.get("flair"):
+            if flair is not None:
+                prefix = os.path.join(temp_dir,self._get_image_basename(flair))
+                if not prefix.endswith("_BET"):
+                    if self.gui != None and self.gui.check_stop():
+                        raise InterruptedError("Action was cancelled by the user.")
+                    action_name="brain extraction"
+                    self._print_action(action_name)
+                    masked_flair, time = self.brain_extracter.run(flair,prefix)
+                    self._print_duration(action_name,time)
+                    if self.gui != None and self.gui.check_stop():
+                        raise InterruptedError("Action was cancelled by the user.")
+                else :
+                    masked_flair = shutil.copy(flair,temp_dir)
+                if not bet_only:
+                    action_name = "register FLAIR to T1"
+                    self._print_action(action_name)
+                    flair_t1,_, time = self._register_to_reference(masked_flair, t1,"T1")
+                    self._print_duration(action_name, time)
+                    data_flair, *_ = self._preprocess_modality(flair_t1)
+                    data = np.concatenate([data_t1, data_flair], axis=0)
+                    if self.option.get("save_bet"):
+                        shutil.copy(masked_flair,self.option.get("output_path"))
+                    return data, affine, bbox, original_shape, trsf_path, spacing, padding
+                else : 
+                    shutil.copy(masked_flair,self.option.get("output_path"))
+            else:
+                raise ValueError("FLAIR image is required but was not provided")
+        elif not bet_only:
+            return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding
+
+    def _print_shape(self,data):
+        self.logger.debug(f'data shape : {data.shape}')
+    
+    def _preprocess_modality(self,modality):
+        action_name="bias correction"
+        self._print_action(action_name)
+        n4_output,time=self._bias_correct(modality)
+        self._print_duration(action_name,time)
+
+        action_name="reorient to RAS"
+        self._print_action(action_name)
+        RAS_output,time=self._reorient_RAS(n4_output)
+        self._print_duration(action_name,time)
+
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        action_name="register to MNI"
+        self._print_action(action_name)
+        MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path,"MNI")
+        self._print_duration(action_name,time)
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+
+    
+        data, spacing, affine, original_shape = self._load_img(MNI_output)
+        self._print_shape(data)
+
+        data, seg, bbox = self._crop_to_nonzero(data)
+        self._print_shape(data)
+
+        action_name="resampling"
+        new_spacing = (1.0, 1.0, 1.0)
+        self._print_action(action_name)
+        data, time = self.resampler.run(data,spacing,new_spacing)
+        self._print_duration(action_name,time)
+        self._print_shape(data)
+
+        action_name="Z score name"
+        self._print_action(action_name)
+        data, time = self._z_score_norm(data,seg)
+        self._print_duration(action_name,time)
+        bbox = tuple(slice(start, end) for start, end in bbox)
+        self._print_shape(data)
+
+        action_name="padding"
+        self._print_action(action_name)
+        data,padding,time = self._padding(data)
+        self._print_duration(action_name,time)
+        self._print_shape(data)
+
+        return data, affine, bbox, original_shape, trsf_path, spacing, padding
 
     def clean(self,temp_dir):
         if os.path.exists(temp_dir):

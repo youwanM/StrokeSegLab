@@ -22,3 +22,8 @@ class Config(metaclass=SingletonMeta):
     def save(self):
         with open(self.config_path, "w") as configfile:
             self.config.write(configfile)
+
+    def clear(self,section):
+        if self.config.has_section(section):
+            self.config.remove_section(section)
+        self.config.add_section(section)

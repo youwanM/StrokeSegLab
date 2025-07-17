@@ -30,6 +30,7 @@ class GUIMain:
         self.inference = Inference(gui=self)
         self.postprocessor = Postprocessor(gui=self)
         self.running = False
+        self.nii_paths = {}
 
         self.window = tk.Tk()
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -40,6 +41,7 @@ class GUIMain:
         self.open_viewer = tk.BooleanVar()
         self.save_bet = tk.BooleanVar()
 
+        self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
         self.working_on_text = tk.StringVar()
         self.result_text = tk.StringVar()
@@ -54,7 +56,6 @@ class GUIMain:
         
         frame = tk.Frame(self.window)
         frame.grid()
-        self.nii_paths = []
         tk.Label(frame, text="Input path : ").grid(row=0,column=0,pady=10)
         self.entry_input_path = tk.Entry(frame, textvariable=self.input_path, state='readonly', width=50)
         self.entry_input_path.grid(row=0, column=1)
@@ -72,9 +73,11 @@ class GUIMain:
         self.label_model = tk.Label(frame, text="Model : ")
         self.models = self.config.get("default","models").split(',')
         self.models = [m for m in self.models]
+        self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
         self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
+        self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
         self.combo_models.current(self.models.index(self.config.get("default","model")))
-        
+        self._on_model_change()
 
         self.label_open_viewer = tk.Label(frame, text="Open viewer : ")
         self.viewer_button = tk.Checkbutton(frame, text="ON/OFF", variable=self.open_viewer)
@@ -117,6 +120,14 @@ class GUIMain:
         else:
             self.run_button.config(state='disabled') 
 
+    def _on_model_change(self,event=None):
+        model = self.combo_models.get()
+        channels = self.config.get("ModelChannels",model)
+        if channels == "2":
+            self.channel_text.set("Using FLAIR and T1")
+        else:
+            self.channel_text.set("Using T1")
+
     def _on_mode_change(self,event=None):
         mode = self.combo_modes.get()
         if mode == "Prediction":
@@ -128,6 +139,7 @@ class GUIMain:
             self.viewer_button.grid(row=4,column=1)
             self.label_save_bet.grid(row=5,column=0)
             self.save_bet_button.grid(row=5,column=1)
+            self.label_channel.grid(row=3,column=2)
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid(row=4, column=2)
             else : 
@@ -141,6 +153,7 @@ class GUIMain:
             self.viewer_button.grid_remove()
             self.label_save_bet.grid_remove()
             self.save_bet_button.grid_remove()
+            self.label_channel.grid_remove()
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid_remove()
             else : 
@@ -195,15 +208,31 @@ class GUIMain:
         self._check_paths_filled()
 
     def _find_nii_files(self):
-        self.nii_paths = []
+        path_list = []
         input_path=self.option.get("input_path")
         if os.path.isfile(input_path) and input_path.endswith((".nii.gz",".nii")):
-            self.nii_paths.append(input_path)
+            self.nii_paths[input_path]=None
         elif os.path.isdir(input_path):
             for root, _, files in os.walk(input_path):
                 for f in files:
                     if f.endswith((".nii.gz",".nii")):
-                        self.nii_paths.append(os.path.join(root, f))
+                        if self.option.get("flair"):
+                            path_list.append(os.path.join(root, f))
+                        else:
+                            self.nii_paths[os.path.join(root, f)]=None
+            if self.option.get("flair"):
+                subject = {}
+                for f in path_list:
+                    name = os.path.basename(f)
+                    if "_T1" in name:
+                        subject_id = f.split("_T1")[0]
+                        subject.setdefault(subject_id,{})['T1']=f
+                    elif "_FLAIR" in name:
+                        subject_id = f.split("_FLAIR")[0]
+                        subject.setdefault(subject_id,{})['FLAIR']=f
+                for subject_id,modalities in subject.items():
+                    if "T1" in modalities:
+                        self.nii_paths[modalities["T1"]]=modalities.get('FLAIR',None)
         self.logger.debug(f'nii_paths : {self.nii_paths}')
 
     def _on_close(self):
@@ -248,7 +277,10 @@ class GUIMain:
         if model_name != self.config.get("default","model"):
             self.config.set("default","model",model_name)
             self.config.save()
-
+        if self.config.get("ModelChannels",model_name) == "2":
+            self.option.set("flair",True)
+        else : 
+            self.option.set("flair",False)
         self.option.set("input_path",self.input_path.get())
         self.option.set('output_path',self.output_path.get())
 
@@ -278,29 +310,30 @@ class GUIMain:
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
-        for img in self.nii_paths:
+        self.logger.debug(f"paths dict : {self.nii_paths}")
+        for t1, flair in self.nii_paths.items():
             try:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
-                s = f"Working on: {os.path.basename(img)} ({i+1}/{len_nii_paths})"
+                s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
+                self.logger.info(f"Starting processing on: {t1}")
                 self.window.after(0,self._update_stringvar,self.working_on_text,s)
-                self.logger.info(f"Starting processing on: {img}")
-                data, affine, bbox,original_shape, trsf_path, old_spacing, padding  = self.preprocessor.run(img,temp_dir)
+                data, affine, bbox,original_shape, trsf_path, old_spacing, padding  = self.preprocessor.run(t1,flair,temp_dir)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 data = self.inference.run(data)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 if self.open_viewer.get() and i==0:
-                    self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
                 else : 
-                    self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
                 i+=1
             except Exception as e:
-                self.logger.error(f"Erreur lors du traitement de {img} : {e}")
+                self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
         self.window.after(0,self._update_result)
-        self.preprocessor.clean(temp_dir)
+        # self.preprocessor.clean(temp_dir)
 
     def _run_bet(self):
 
@@ -341,9 +374,9 @@ class GUIMain:
         self.stop_button.grid_remove()
         self.stop_button.config(state="normal")
         self.run_button.config(state="normal")
-        self.label_exec_mode.grid(row=5, column=0)
-        self.combo_modes.grid(row=5, column=1)
-        self.run_button.grid(row=5,column=2)
+        self.label_exec_mode.grid(row=6, column=0)
+        self.combo_modes.grid(row=6, column=1)
+        self.run_button.grid(row=6,column=2)
         self.running = False
         if self.success:
             self.result_text.set("✓ Success")

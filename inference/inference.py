@@ -33,12 +33,20 @@ class Inference:
             for f in files:
                 if f.endswith(".onnx"):
                     models.append(f[:-5])
-        if models != self.config.get("default","models"):
+        models_string = ",".join(models)
+        if models_string != self.config.get("default","models"):
             if self.config.get("default","model") not in models:
                 self.config.set("default","model",models[0])
-            models = ",".join(models)
-            self.config.set("default","models",models)
+            self.config.set("default","models",models_string)
+            self.config.clear("ModelChannels")
+            for model in models:
+                model_path = os.path.join(MODEL_DIR, model+".onnx")
+                session = ort.InferenceSession(model_path)
+                input_tensor = session.get_inputs()[0]
+                channels = input_tensor.shape[1]
+                self.config.set("ModelChannels",model,str(channels))
             self.config.save()
+
 
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
