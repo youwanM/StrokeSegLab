@@ -17,7 +17,14 @@ from preprocessing.preprocessor import Preprocessor
 import threading
 
 class GUIMain:
+    """
+    Graphical interface of the brain segmentation application
+    This class initialize the Tkinter window, manage user inputs, run preprocessing, inference, postprocessing and updates the GUI
+    """
     def __init__(self):
+        """
+        Initialize the graphical interface with all the Tkinter widgets and run the main Tkinter loop (mainloop)
+        """
         setup_logger(False)
         self.logger = logging.getLogger()
         self.logger.warning("="*60)
@@ -115,6 +122,9 @@ class GUIMain:
         self.window.mainloop()
 
     def _check_paths_filled(self):
+        """
+        Checks if the input and 
+        """
         if self.input_path.get() and self.output_path.get():
             self.run_button.config(state='normal')
         else:

@@ -67,7 +67,11 @@ class Preprocessor:
         
     def _register_to_reference(self,img_path,ref,type):
         start = time.time()
-        output_path= img_path.replace('.nii.gz', type+'.nii.gz')
+        if img_path.endswith(".nii"):
+            temp_path = img_path.replace('.nii','.nii.gz')
+        else :
+            temp_path = img_path
+        output_path= temp_path.replace('.nii.gz', type+'.nii.gz')
         trsf_path = output_path.replace('.nii.gz', '.txt')
         command=["animaPyramidalBMRegistration","-m",img_path,"-r",ref,"-o",output_path,"-O",trsf_path]
         self.wrapper.run(command)
@@ -99,21 +103,25 @@ class Preprocessor:
         return binary_fill_holes(nonzero_mask)
 
 
-    def _crop_to_nonzero(self,data, seg=None, nonzero_label=-1):
-
-        nonzero_mask = self._create_nonzero_mask(data)
-        bbox = get_bbox_from_mask(nonzero_mask)
-        slicer = bounding_box_to_slice(bbox)
-        nonzero_mask = nonzero_mask[slicer][None]
-    
-        slicer = (slice(None), ) + slicer
-        data = data[slicer]
-        if seg is not None:
-            seg = seg[slicer]
-            seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
-        else:
-            seg = np.where(nonzero_mask, np.int8(0), np.int8(nonzero_label))
-        return data, seg, bbox
+    def _crop_to_nonzero(self,data, seg=None, nonzero_label=-1,bbox=None):
+        if bbox is None:
+            nonzero_mask = self._create_nonzero_mask(data)
+            bbox = get_bbox_from_mask(nonzero_mask)
+            slicer = bounding_box_to_slice(bbox)
+            nonzero_mask = nonzero_mask[slicer][None]
+            slicer = (slice(None), ) + slicer
+            data = data[slicer]
+            if seg is not None:
+                seg = seg[slicer]
+                seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
+            else:
+                seg = np.where(nonzero_mask, np.int8(0), np.int8(nonzero_label))
+            return data, seg, bbox
+        else :
+            slicer = bounding_box_to_slice(bbox)
+            slicer = (slice(None), ) + slicer
+            data = data[slicer]
+            return data
 
     def _padding(self,data, min_size=128):
         start = time.time()
@@ -155,22 +163,22 @@ class Preprocessor:
             if flair is not None:
                 prefix = os.path.join(temp_dir,self._get_image_basename(flair))
                 if not prefix.endswith("_BET"):
+                    action_name = "register FLAIR to T1"
+                    self._print_action(action_name)
+                    flair_t1,_, time = self._register_to_reference(flair, t1,"T1")
+                    self._print_duration(action_name, time)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                     action_name="brain extraction"
                     self._print_action(action_name)
-                    masked_flair, time = self.brain_extracter.run(flair,prefix)
+                    masked_flair, time = self.brain_extracter.run(flair_t1,prefix)
                     self._print_duration(action_name,time)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                 else :
                     masked_flair = shutil.copy(flair,temp_dir)
                 if not bet_only:
-                    action_name = "register FLAIR to T1"
-                    self._print_action(action_name)
-                    flair_t1,_, time = self._register_to_reference(masked_flair, t1,"T1")
-                    self._print_duration(action_name, time)
-                    data_flair, *_ = self._preprocess_modality(flair_t1)
+                    data_flair = self._preprocess_modality(masked_flair,bbox=bbox)
                     data = np.concatenate([data_t1, data_flair], axis=0)
                     if self.option.get("save_bet"):
                         shutil.copy(masked_flair,self.option.get("output_path"))
@@ -185,7 +193,7 @@ class Preprocessor:
     def _print_shape(self,data):
         self.logger.debug(f'data shape : {data.shape}')
     
-    def _preprocess_modality(self,modality):
+    def _preprocess_modality(self,modality,bbox = None):
         action_name="bias correction"
         self._print_action(action_name)
         n4_output,time=self._bias_correct(modality)
@@ -208,8 +216,10 @@ class Preprocessor:
     
         data, spacing, affine, original_shape = self._load_img(MNI_output)
         self._print_shape(data)
-
-        data, seg, bbox = self._crop_to_nonzero(data)
+        if bbox is None:
+            data, seg, bbox = self._crop_to_nonzero(data)
+        else:
+            data = self._crop_to_nonzero(data,bbox=bbox)
         self._print_shape(data)
 
         action_name="resampling"
@@ -231,8 +241,10 @@ class Preprocessor:
         data,padding,time = self._padding(data)
         self._print_duration(action_name,time)
         self._print_shape(data)
-
-        return data, affine, bbox, original_shape, trsf_path, spacing, padding
+        if seg is not None:
+            return data, affine, bbox, original_shape, trsf_path, spacing, padding
+        else :
+            return data
 
     def clean(self,temp_dir):
         if os.path.exists(temp_dir):

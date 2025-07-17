@@ -35,7 +35,7 @@ def find_nii_files(input_path):
 
 wrapper = AnimaWrapper()
 extracter = BrainExtracter(wrapper)
-list = find_nii_files("../ATLAS/test_t1_flair")
+list = find_nii_files("../ATLAS/test_t1_flair/youwan_T1w.nii")
 output_path = "./"
 for img in list:
     print(f"\n Traitement de l'image : {img}")
