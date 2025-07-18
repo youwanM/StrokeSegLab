@@ -52,6 +52,7 @@ class GUIMain:
         self.status_text = tk.StringVar()
         self.working_on_text = tk.StringVar()
         self.result_text = tk.StringVar()
+        self.subject_number_text = tk.StringVar()
 
         menubar = Menu(self.window)
         help_menu = Menu(menubar, tearoff=0)
@@ -112,6 +113,7 @@ class GUIMain:
         self._on_mode_change()
 
         self.label_working_on = tk.Label(frame, textvariable=self.working_on_text, fg="blue")
+        self.label_subject_number_text = tk.Label(frame, textvariable=self.subject_number_text, fg="blue")
         self.label_status = tk.Label(frame, textvariable=self.status_text)
         self.label_result = tk.Label(frame, textvariable=self.result_text, font=("Arial", 14, "bold"))
         self.stop_requested = False
@@ -218,10 +220,14 @@ class GUIMain:
         self._check_paths_filled()
 
     def _find_nii_files(self):
+        self.nii_paths = {}
         path_list = []
+        subject_number = 0
+        flair_number = 0
         input_path=self.option.get("input_path")
         if os.path.isfile(input_path) and input_path.endswith((".nii.gz",".nii")):
             self.nii_paths[input_path]=None
+            subject_number = 1
         elif os.path.isdir(input_path):
             for root, _, files in os.walk(input_path):
                 for f in files:
@@ -230,20 +236,32 @@ class GUIMain:
                             path_list.append(os.path.join(root, f))
                         else:
                             self.nii_paths[os.path.join(root, f)]=None
+                            subject_number+=1
             if self.option.get("flair"):
                 subject = {}
                 for f in path_list:
                     name = os.path.basename(f)
                     if "_T1" in name:
-                        subject_id = f.split("_T1")[0]
+                        subject_id = name.split("_T1")[0]
                         subject.setdefault(subject_id,{})['T1']=f
                     elif "_FLAIR" in name:
-                        subject_id = f.split("_FLAIR")[0]
+                        subject_id = name.split("_FLAIR")[0]
                         subject.setdefault(subject_id,{})['FLAIR']=f
+                none_list = []
                 for subject_id,modalities in subject.items():
-                    if "T1" in modalities:
-                        self.nii_paths[modalities["T1"]]=modalities.get('FLAIR',None)
-        self.logger.debug(f'nii_paths : {self.nii_paths}')
+                    if "T1" in modalities and "FLAIR" in modalities:
+                        self.nii_paths[modalities["T1"]] = modalities["FLAIR"]
+                        flair_number +=1
+                        subject_number +=1
+                    else :
+                        none_list.append(subject_id)
+                        if "T1" in modalities:
+                            subject_number+=1
+                        else:
+                            flair_number+=1
+        self.logger.debug(f'list : {path_list}')
+        self.logger.debug(f'dict : {self.nii_paths}')
+        return subject_number,flair_number,none_list
 
     def _on_close(self):
         if self.running:
@@ -273,7 +291,8 @@ class GUIMain:
         self.label_exec_mode.grid_remove()
         self.combo_modes.grid_remove()
         self.run_button.grid_remove()
-        self.label_working_on.grid(row=6, column=0, pady=10)
+        self.label_subject_number_text.grid(row=6, column=0, padx=10)
+        self.label_working_on.grid(row=6, column=1, pady=10)
         self.label_status.grid(row=7, column=0, pady=10)
         self.label_result.grid(row=8, column=0, columnspan=4, pady=10)
         self.stop_button.grid(row=5, column=2)
@@ -305,7 +324,20 @@ class GUIMain:
         else :
             self.option.set("save_bet", False)
         
-        self._find_nii_files()
+        subject,flair,none_list = self._find_nii_files()
+        if self.option.get("flair") and subject != flair:
+            if none_list:
+                self.logger.debug(f"none_list : {none_list}")
+                none_string = ", ".join(none_list)
+                m = f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image."
+                self.window.after(0, lambda: messagebox.showwarning("⚠️ Warning", m))
+            s = f"{subject} subject(s) found, \n ⚠️ T1 ({subject}) and FLAIR ({flair}) count mismatch"
+            self._update_stringvar(self.subject_number_text,s)
+        else:
+            s = f"{subject} subject(s) found"
+            self._update_stringvar(self.subject_number_text,s)
+                
+
         if self.config.get("default","suffix")!=self.suffix.get():
             self.config.set("default","suffix", self.suffix.get())
             self.config.save()
@@ -320,7 +352,6 @@ class GUIMain:
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
-        self.logger.debug(f"paths dict : {self.nii_paths}")
         for t1, flair in self.nii_paths.items():
             try:
                 if self.check_stop():
@@ -328,22 +359,22 @@ class GUIMain:
                 s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
                 self.logger.info(f"Starting processing on: {t1}")
                 self.window.after(0,self._update_stringvar,self.working_on_text,s)
-                data, affine, bbox,original_shape, trsf_path, old_spacing, padding  = self.preprocessor.run(t1,flair,temp_dir)
+                data, affine, bbox,original_shape, trsf_path, old_spacing, padding, bet  = self.preprocessor.run(t1,flair,temp_dir)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 data = self.inference.run(data)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 if self.open_viewer.get() and i==0:
-                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,True)
                 else : 
-                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet)
                 i+=1
             except Exception as e:
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
         self.window.after(0,self._update_result)
-        # self.preprocessor.clean(temp_dir)
+        self.preprocessor.clean(temp_dir)
 
     def _run_bet(self):
 
@@ -387,6 +418,7 @@ class GUIMain:
         self.label_exec_mode.grid(row=6, column=0)
         self.combo_modes.grid(row=6, column=1)
         self.run_button.grid(row=6,column=2)
+        self.label_subject_number_text.grid_remove()
         self.running = False
         if self.success:
             self.result_text.set("✓ Success")

@@ -20,11 +20,9 @@ class Postprocessor:
         self.viewer = Viewer()
         self.gui = gui
     
-    def _save_img(self,temp_dir,data,input_path,affine):
+    def _save_img(self,temp_dir,data,base_name,affine):
         start = time.time()
         out_img = nibabel.Nifti1Image(data,affine)
-        base_name = os.path.basename(input_path)
-        base_name = base_name.split(".nii")[0]
         suffix = self.config.get("default","suffix")
         output_file = os.path.join(temp_dir, base_name + f"_{suffix}.nii.gz")
         nibabel.save(out_img, output_file)
@@ -32,7 +30,9 @@ class Postprocessor:
     
     def _convert_to_segmentation(self, data):
         start = time.time()
+        self.logger.debug(f"data shape : {data.shape}")
         data = data[0]
+        self.logger.debug(f"data[0] shape : {data.shape}")
         for i in range(data.shape[0]):
             self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
         data = np.argmax(data, axis=0).astype(np.uint8)
@@ -85,7 +85,7 @@ class Postprocessor:
             return os.path.splitext(filename)[0]
 
 
-    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,open_viewer=False):
+    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,open_viewer=False):
 
 
         action_name="convert to segmentation"
@@ -100,7 +100,8 @@ class Postprocessor:
 
         action_name="uncrop"
         self._print_action(action_name)
-        data = self._uncrop_from_bbox(data,bbox,original_shape)
+        slicer = tuple(slice(start, end) for start, end in bbox)
+        data = self._uncrop_from_bbox(data,slicer,original_shape)
 
         action_name="resampling"
         new_spacing = (1.0, 1.0, 1.0)
@@ -113,17 +114,16 @@ class Postprocessor:
 
         basename = self._get_image_basename(input_path)
         if basename.endswith("_BET"):
-            new_path = os.path.join(os.path.dirname(input_path),basename[:-4]+'.nii.gz')
-        else : 
-            new_path = input_path
+            basename = basename[:-4]
+
         action_name="saving image to nii"
         self._print_action(action_name)
-        nii_file, time = self._save_img(temp_dir,data,new_path,affine)
+        nii_file, time = self._save_img(temp_dir,data,basename,affine)
         self._print_duration(action_name,time)
 
         action_name="register to reference"
         self._print_action(action_name)
-        output_path,time = self._register_to_reference(nii_file,trsf_path,new_path)
+        output_path,time = self._register_to_reference(nii_file,trsf_path,bet)
         self._print_duration(action_name,time)
         self.logger.debug(f"open viewer : {open_viewer}")
         if open_viewer:

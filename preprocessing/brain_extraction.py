@@ -3,59 +3,90 @@ from manager.path import ATLAS_DIR
 import os
 class BrainExtracter:
 
-    def __init__(self,wrapper):
+    def __init__(self,wrapper,gui=None):
         self.wrapper = wrapper
         self.atlasImage = os.path.join(ATLAS_DIR,"Reference_T1.nrrd")
         self.iccImage = os.path.join(ATLAS_DIR,"BrainMask.nrrd")
         self.atlas_brain = os.path.join(ATLAS_DIR, "atlas_brain.nrrd")
         self.pyramid_option = ["-p", "4", "-l", "1"]
+        self.gui = gui
         
 
-    def run(self,img_path,prefix,second_step=False):
+    def run(self,img_path,prefix):
         start = time.time()
         brainMask = prefix + "_brainMask.nii.gz"
         maskedBrain = prefix + "_BET.nii.gz"
 
         command = ["animaPyramidalBMRegistration","-m",self.atlasImage,"-r",img_path,"-o",prefix+"_rig.nrrd","-O",prefix+"_rig_tr.txt","--sp","3"] + self.pyramid_option
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaPyramidalBMRegistration", "-m", self.atlasImage, "-r", img_path, "-o", prefix + "_aff.nrrd", "-O", prefix + "_aff_tr.txt", "-i", prefix + "_rig_tr.txt", "--sp", "3", "--ot","2"] + self.pyramid_option
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaCreateImage", "-g", self.atlasImage, "-b", "1", "-o", prefix + "_baseCropMask.nrrd"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaTransformSerieXmlGenerator", "-i", prefix + "_aff_tr.txt","-o", prefix + "_aff_tr.xml"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaApplyTransformSerie", "-i", prefix + "_baseCropMask.nrrd","-t", prefix + "_aff_tr.xml", "-g", img_path, "-o",prefix + "_cropMask.nrrd", "-n", "nearest"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaMaskImage", "-i", img_path, "-m", prefix + "_cropMask.nrrd","-o", prefix + "_c.nrrd"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaDenseSVFBMRegistration", "-r", prefix + "_c.nrrd", "-m", prefix + "_aff.nrrd","-o", prefix + "_nl.nrrd", "-O", prefix + "_nl_tr.nrrd", "--tub", "2"] + self.pyramid_option
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaTransformSerieXmlGenerator", "-i", prefix + "_aff_tr.txt", "-i",prefix + "_nl_tr.nrrd", "-o", prefix + "_nl_tr.xml"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaApplyTransformSerie", "-i", self.iccImage, "-t", prefix + "_nl_tr.xml", "-g", img_path, "-o",prefix + "_rough_brainMask.nrrd", "-n", "nearest"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaMaskImage", "-i", img_path, "-m", prefix + "_rough_brainMask.nrrd", "-o",prefix + "_rough_masked.nrrd"]
         self.wrapper.run(command)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         brainImageRoughMasked = prefix + "_rough_masked.nrrd"
 
         command = ["animaConvertImage", "-i", brainImageRoughMasked, "-o", prefix + "_masked.nrrd"]
         self.wrapper.run(command)
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+
         command = ["animaConvertImage", "-i", prefix + "_rough_brainMask.nrrd", "-o", prefix + "_brainMask.nrrd"]
         self.wrapper.run(command)
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaConvertImage", "-i", prefix + "_masked.nrrd", "-o", maskedBrain]
         self.wrapper.run(command)
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         command = ["animaConvertImage", "-i", prefix + "_brainMask.nrrd", "-o", brainMask]
         self.wrapper.run(command)
+        
         end = time.time()
         elapsed = end - start
 

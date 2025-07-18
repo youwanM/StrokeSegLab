@@ -22,7 +22,7 @@ class Preprocessor:
         self.wrapper = AnimaWrapper()
         self.atlas_path = os.path.join(ATLAS_DIR,"atlas.nrrd")
         self.gui = gui
-        self.brain_extracter = BrainExtracter(self.wrapper)
+        self.brain_extracter = BrainExtracter(self.wrapper,gui)
     
     def _load_img(self,img_path):
         img = nibabel.load(img_path)
@@ -65,13 +65,15 @@ class Preprocessor:
         else:
             return os.path.splitext(filename)[0]
         
-    def _register_to_reference(self,img_path,ref,type):
+    def _register_to_reference(self,img_path,ref,suffix,prefix=None):
         start = time.time()
-        if img_path.endswith(".nii"):
-            temp_path = img_path.replace('.nii','.nii.gz')
-        else :
-            temp_path = img_path
-        output_path= temp_path.replace('.nii.gz', type+'.nii.gz')
+        if prefix is None:
+            if img_path.endswith(".nii.gz"):
+                output_path= img_path.replace('.nii.gz', "_"+suffix+'.nii.gz')
+            elif img_path.endswith(".nii"):
+                output_path= img_path.replace('.nii', "_"+suffix+'.nii.gz')
+        else : 
+            output_path = prefix + "_" + suffix + ".nii.gz"
         trsf_path = output_path.replace('.nii.gz', '.txt')
         command=["animaPyramidalBMRegistration","-m",img_path,"-r",ref,"-o",output_path,"-O",trsf_path]
         self.wrapper.run(command)
@@ -104,24 +106,19 @@ class Preprocessor:
 
 
     def _crop_to_nonzero(self,data, seg=None, nonzero_label=-1,bbox=None):
+        nonzero_mask = self._create_nonzero_mask(data)
         if bbox is None:
-            nonzero_mask = self._create_nonzero_mask(data)
             bbox = get_bbox_from_mask(nonzero_mask)
-            slicer = bounding_box_to_slice(bbox)
-            nonzero_mask = nonzero_mask[slicer][None]
-            slicer = (slice(None), ) + slicer
-            data = data[slicer]
-            if seg is not None:
-                seg = seg[slicer]
-                seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
-            else:
-                seg = np.where(nonzero_mask, np.int8(0), np.int8(nonzero_label))
-            return data, seg, bbox
-        else :
-            slicer = bounding_box_to_slice(bbox)
-            slicer = (slice(None), ) + slicer
-            data = data[slicer]
-            return data
+        slicer = bounding_box_to_slice(bbox)
+        nonzero_mask = nonzero_mask[slicer][None]
+        slicer = (slice(None), ) + slicer
+        data = data[slicer]
+        if seg is not None:
+            seg = seg[slicer]
+            seg[(seg == 0) & (~nonzero_mask)] = nonzero_label
+        else:
+            seg = np.where(nonzero_mask, np.int8(0), np.int8(nonzero_label))
+        return data, seg, bbox
 
     def _padding(self,data, min_size=128):
         start = time.time()
@@ -146,49 +143,51 @@ class Preprocessor:
                 raise InterruptedError("Action was cancelled by the user.")
             action_name="brain extraction"
             self._print_action(action_name)
-            masked_t1, time = self.brain_extracter.run(t1,prefix)
+            bet_t1, time = self.brain_extracter.run(t1,prefix)
             self._print_duration(action_name,time)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
         else :
-            masked_t1 = shutil.copy(t1,temp_dir)
+            bet_t1 = shutil.copy(t1,temp_dir)
         if not bet_only:
-            data_t1, affine, bbox, original_shape, trsf_path, spacing, padding = self._preprocess_modality(masked_t1)
+            data_t1, affine, bbox, original_shape, trsf_path, spacing, padding = self._preprocess_modality(bet_t1)
             if self.option.get("save_bet"):
-                shutil.copy(masked_t1,self.option.get("output_path"))
+                shutil.copy(bet_t1,self.option.get("output_path"))
         else : 
-            shutil.copy(masked_t1,self.option.get("output_path"))
+            shutil.copy(bet_t1,self.option.get("output_path"))
 
         if self.option.get("flair"):
             if flair is not None:
                 prefix = os.path.join(temp_dir,self._get_image_basename(flair))
                 if not prefix.endswith("_BET"):
+                    if self.gui != None and self.gui.check_stop():
+                        raise InterruptedError("Action was cancelled by the user.")
                     action_name = "register FLAIR to T1"
                     self._print_action(action_name)
-                    flair_t1,_, time = self._register_to_reference(flair, t1,"T1")
+                    flair_t1,_, time = self._register_to_reference(flair, t1,"T1",prefix=prefix)
                     self._print_duration(action_name, time)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                     action_name="brain extraction"
                     self._print_action(action_name)
-                    masked_flair, time = self.brain_extracter.run(flair_t1,prefix)
+                    bet_flair, time = self.brain_extracter.run(flair_t1,prefix)
                     self._print_duration(action_name,time)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                 else :
-                    masked_flair = shutil.copy(flair,temp_dir)
+                    bet_flair = shutil.copy(flair,temp_dir)
                 if not bet_only:
-                    data_flair = self._preprocess_modality(masked_flair,bbox=bbox)
+                    data_flair, *_ = self._preprocess_modality(bet_flair,bbox=bbox)
                     data = np.concatenate([data_t1, data_flair], axis=0)
                     if self.option.get("save_bet"):
-                        shutil.copy(masked_flair,self.option.get("output_path"))
-                    return data, affine, bbox, original_shape, trsf_path, spacing, padding
+                        shutil.copy(bet_flair,self.option.get("output_path"))
+                    return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1
                 else : 
-                    shutil.copy(masked_flair,self.option.get("output_path"))
+                    shutil.copy(bet_flair,self.option.get("output_path"))
             else:
                 raise ValueError("FLAIR image is required but was not provided")
         elif not bet_only:
-            return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding
+            return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1
 
     def _print_shape(self,data):
         self.logger.debug(f'data shape : {data.shape}')
@@ -198,14 +197,16 @@ class Preprocessor:
         self._print_action(action_name)
         n4_output,time=self._bias_correct(modality)
         self._print_duration(action_name,time)
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
 
         action_name="reorient to RAS"
         self._print_action(action_name)
         RAS_output,time=self._reorient_RAS(n4_output)
         self._print_duration(action_name,time)
-
         if self.gui != None and self.gui.check_stop():
             raise InterruptedError("Action was cancelled by the user.")
+        
         action_name="register to MNI"
         self._print_action(action_name)
         MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path,"MNI")
@@ -219,7 +220,7 @@ class Preprocessor:
         if bbox is None:
             data, seg, bbox = self._crop_to_nonzero(data)
         else:
-            data = self._crop_to_nonzero(data,bbox=bbox)
+            data, seg, bbox = self._crop_to_nonzero(data,bbox=bbox)
         self._print_shape(data)
 
         action_name="resampling"
@@ -228,24 +229,25 @@ class Preprocessor:
         data, time = self.resampler.run(data,spacing,new_spacing)
         self._print_duration(action_name,time)
         self._print_shape(data)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         action_name="Z score name"
         self._print_action(action_name)
         data, time = self._z_score_norm(data,seg)
         self._print_duration(action_name,time)
-        bbox = tuple(slice(start, end) for start, end in bbox)
+        # bbox = tuple(slice(start, end) for start, end in bbox)
         self._print_shape(data)
-
+        if self.gui != None and self.gui.check_stop():
+            raise InterruptedError("Action was cancelled by the user.")
+        
         action_name="padding"
         self._print_action(action_name)
         data,padding,time = self._padding(data)
         self._print_duration(action_name,time)
         self._print_shape(data)
-        if seg is not None:
-            return data, affine, bbox, original_shape, trsf_path, spacing, padding
-        else :
-            return data
-
+        return data, affine, bbox, original_shape, trsf_path, spacing, padding
+    
     def clean(self,temp_dir):
         if os.path.exists(temp_dir):
             try:
