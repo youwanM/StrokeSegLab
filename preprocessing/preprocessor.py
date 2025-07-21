@@ -1,4 +1,6 @@
 import logging
+from manager.config_manager import Config
+from manager.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, RAWDATA, T1
 from manager.option_manager import Option
 from preprocessing.brain_extraction import BrainExtracter
 from preprocessing.resampling import Resampler
@@ -15,9 +17,11 @@ import shutil
 import nibabel as nib
 
 class Preprocessor:
-    def __init__(self,gui=None):
+    def __init__(self,postprocessor,gui=None):
+        self.postprocessor = postprocessor
         self.logger = logging.getLogger()
         self.option = Option()
+        self.config = Config()
         self.resampler = Resampler()
         self.wrapper = AnimaWrapper()
         self.atlas_path = os.path.join(ATLAS_DIR,"atlas.nrrd")
@@ -57,13 +61,11 @@ class Preprocessor:
         return output_path, time.time()-start
 
     def _get_image_basename(self,img_path):
-        filename = os.path.basename(img_path)
-        if filename.endswith(".nii.gz"):
-            return filename[:-7]
-        elif filename.endswith(".nii"):
-            return filename[:-4]
-        else:
-            return os.path.splitext(filename)[0]
+        name = os.path.basename(img_path)
+        for ext in EXTENSIONS:
+            if name.endswith(ext):
+                name = name[:-len(ext)]
+        return name
         
     def _register_to_reference(self,img_path,ref,suffix,prefix=None):
         start = time.time()
@@ -152,9 +154,9 @@ class Preprocessor:
         if not bet_only:
             data_t1, affine, bbox, original_shape, trsf_path, spacing, padding = self._preprocess_modality(bet_t1)
             if self.option.get("save_bet"):
-                shutil.copy(bet_t1,self.option.get("output_path"))
+                self.postprocessor.move_to_output(bet_t1)
         else : 
-            shutil.copy(bet_t1,self.option.get("output_path"))
+            self.postprocessor.move_to_output(bet_t1)
 
         if self.option.get("flair"):
             if flair is not None:
@@ -180,10 +182,10 @@ class Preprocessor:
                     data_flair, *_ = self._preprocess_modality(bet_flair,bbox=bbox)
                     data = np.concatenate([data_t1, data_flair], axis=0)
                     if self.option.get("save_bet"):
-                        shutil.copy(bet_flair,self.option.get("output_path"))
+                        self.postprocessor.move_to_output(bet_flair)
                     return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1
                 else : 
-                    shutil.copy(bet_flair,self.option.get("output_path"))
+                    self.postprocessor.move_to_output(bet_flair)
             else:
                 raise ValueError("FLAIR image is required but was not provided")
         elif not bet_only:
@@ -255,3 +257,78 @@ class Preprocessor:
                 self.logger.info(f"Temporary directory '{temp_dir}' has been removed.")
             except Exception as e:
                 self.logger.error(f"Failed to delete temp directory '{temp_dir}': {e}")
+    def _rm_entity(self,img_path,keyword):
+        name = self._get_image_basename(img_path)
+        i = name.find(keyword)
+        if i ==-1:
+            return name
+        name = name[:i]
+        if name.endswith("-"):
+            name = name.rsplit("_",1)[0]
+        name = name.rstrip("_")
+        return name
+    def find_nii_files(self):
+        nii_paths = {}
+        path_dict = {}
+        subject_number = 0
+        flair_number = 0
+        none_list = []    
+        input_path=self.option.get("input_path")
+        if os.path.isfile(input_path) and input_path.endswith(EXTENSIONS) :
+            nii_paths[input_path]=None
+            subject_number = 1
+            self.option.set("is_file",True)
+        elif os.path.isdir(input_path):
+            self.option.set("is_file",False)
+            rawdata_path = os.path.join(input_path,RAWDATA)
+            derivatives_path = os.path.join(input_path,DERIVATIVES)
+            basepaths =[]
+            if os.path.isdir(rawdata_path):
+                basepath.append(rawdata_path)
+                if os.path.isdir(derivatives_path):
+                    basepaths.append(derivatives_path)
+            else:
+                basepaths = [input_path]
+            for basepath in basepaths:
+                for root, _, files in os.walk(basepath):
+                    for f in files:
+                        if f.endswith(EXTENSIONS):
+                            if DERIVATIVES in root and BET not in f:
+                                continue
+                            f_id = self._get_image_basename(f)
+                            if BET in f:
+                                f_id = self._rm_entity(f_id,BET)
+                                path_dict.setdefault(f_id,{})[BET]=os.path.join(root, f)
+                            else : 
+                                path_dict.setdefault(f_id,{})["RAW"]=os.path.join(root, f)                        
+            subject = {}
+            for name,files in path_dict.items():
+                if BET in files:
+                    f = files[BET]
+                else : 
+                    f = files["RAW"]
+                if self.option.get("flair"):
+                    if T1 in name:
+                        subject_id = self._rm_entity(name,T1)
+                        subject.setdefault(subject_id,{})["T1"]=f
+                    elif FLAIR in name:
+                        subject_id = self._rm_entity(name,FLAIR)
+                        subject.setdefault(subject_id,{})['FLAIR']=f
+                else : 
+                    nii_paths[f]=None
+                    subject_number+=1
+            if self.option.get("flair"):
+                for subject_id,modalities in subject.items():
+                    if "T1" in modalities and "FLAIR" in modalities:
+                        nii_paths[modalities["T1"]] = modalities["FLAIR"]
+                        flair_number +=1
+                        subject_number +=1
+                    else :
+                        none_list.append(subject_id)
+                        if "T1" in modalities:
+                            subject_number+=1
+                        else:
+                            flair_number+=1
+        self.logger.debug(f'list : {path_dict}')
+        self.logger.debug(f'dict : {nii_paths}')
+        return nii_paths,subject_number,flair_number,none_list

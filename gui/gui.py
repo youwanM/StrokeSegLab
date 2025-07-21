@@ -33,9 +33,9 @@ class GUIMain:
         self.option = Option()
         self.config = Config()
         self.option.set("device",self._check_device())
-        self.preprocessor = Preprocessor(gui=self)
-        self.inference = Inference(gui=self)
         self.postprocessor = Postprocessor(gui=self)
+        self.preprocessor = Preprocessor(self.postprocessor,gui=self)
+        self.inference = Inference(gui=self)
         self.running = False
         self.nii_paths = {}
 
@@ -43,7 +43,6 @@ class GUIMain:
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         self.window.title(APP_NAME)
         self.input_path = tk.StringVar(value="")
-        self.output_path = tk.StringVar(value="")
         self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
         self.open_viewer = tk.BooleanVar()
         self.save_bet = tk.BooleanVar()
@@ -69,11 +68,6 @@ class GUIMain:
         self.entry_input_path.grid(row=0, column=1)
         tk.Button(frame, text='Select input folder',command=self._select_input_folder).grid(row=0,column=2)
         tk.Button(frame, text='Select input file',command=self._select_input_file).grid(row=0,column=3)
-
-        tk.Label(frame, text="Output path : ").grid(row=1,column=0,pady=10)
-        self.entry_output_path = tk.Entry(frame, textvariable=self.output_path, state='readonly', width=50)
-        self.entry_output_path.grid(row=1, column=1)
-        tk.Button(frame, text='Select output path',command=self._select_output_path).grid(row=1,column=2)
 
         self.label_suffix = tk.Label(frame, text="Suffix : ")
         self.entry_suffix = tk.Entry(frame, textvariable=self.suffix, width=20)
@@ -123,11 +117,11 @@ class GUIMain:
         messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
         self.window.mainloop()
 
-    def _check_paths_filled(self):
+    def _check_path_filled(self):
         """
         Checks if the input and 
         """
-        if self.input_path.get() and self.output_path.get():
+        if self.input_path.get():
             self.run_button.config(state='normal')
         else:
             self.run_button.config(state='disabled') 
@@ -209,59 +203,11 @@ class GUIMain:
 
     def _select_input_folder(self):
         self.input_path.set(filedialog.askdirectory(title='input path'))
-        self._check_paths_filled()
-        
-    def _select_output_path(self):
-        self.output_path.set(filedialog.askdirectory(title='output path'))
-        self._check_paths_filled()
+        self._check_path_filled()
 
     def _select_input_file(self):
         self.input_path.set(filedialog.askopenfilename(title='input path'))
-        self._check_paths_filled()
-
-    def _find_nii_files(self):
-        self.nii_paths = {}
-        path_list = []
-        subject_number = 0
-        flair_number = 0
-        input_path=self.option.get("input_path")
-        if os.path.isfile(input_path) and input_path.endswith((".nii.gz",".nii")):
-            self.nii_paths[input_path]=None
-            subject_number = 1
-        elif os.path.isdir(input_path):
-            for root, _, files in os.walk(input_path):
-                for f in files:
-                    if f.endswith((".nii.gz",".nii")):
-                        if self.option.get("flair"):
-                            path_list.append(os.path.join(root, f))
-                        else:
-                            self.nii_paths[os.path.join(root, f)]=None
-                            subject_number+=1
-            if self.option.get("flair"):
-                subject = {}
-                for f in path_list:
-                    name = os.path.basename(f)
-                    if "_T1" in name:
-                        subject_id = name.split("_T1")[0]
-                        subject.setdefault(subject_id,{})['T1']=f
-                    elif "_FLAIR" in name:
-                        subject_id = name.split("_FLAIR")[0]
-                        subject.setdefault(subject_id,{})['FLAIR']=f
-                none_list = []
-                for subject_id,modalities in subject.items():
-                    if "T1" in modalities and "FLAIR" in modalities:
-                        self.nii_paths[modalities["T1"]] = modalities["FLAIR"]
-                        flair_number +=1
-                        subject_number +=1
-                    else :
-                        none_list.append(subject_id)
-                        if "T1" in modalities:
-                            subject_number+=1
-                        else:
-                            flair_number+=1
-        self.logger.debug(f'list : {path_list}')
-        self.logger.debug(f'dict : {self.nii_paths}')
-        return subject_number,flair_number,none_list
+        self._check_path_filled()
 
     def _on_close(self):
         if self.running:
@@ -311,7 +257,6 @@ class GUIMain:
         else : 
             self.option.set("flair",False)
         self.option.set("input_path",self.input_path.get())
-        self.option.set('output_path',self.output_path.get())
 
         if self.open_viewer.get() : 
             viewer = self.combo_viewers.get()
@@ -324,14 +269,14 @@ class GUIMain:
         else :
             self.option.set("save_bet", False)
         
-        subject,flair,none_list = self._find_nii_files()
+        self.nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if self.option.get("flair") and subject != flair:
             if none_list:
                 self.logger.debug(f"none_list : {none_list}")
                 none_string = ", ".join(none_list)
                 m = f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image."
                 self.window.after(0, lambda: messagebox.showwarning("⚠️ Warning", m))
-            s = f"{subject} subject(s) found, \n ⚠️ T1 ({subject}) and FLAIR ({flair}) count mismatch"
+            s = f"{len(self.nii_paths)} subject(s) found, \n ⚠️ T1 ({subject}) and FLAIR ({flair}) count mismatch"
             self._update_stringvar(self.subject_number_text,s)
         else:
             s = f"{subject} subject(s) found"
@@ -379,9 +324,8 @@ class GUIMain:
     def _run_bet(self):
 
         self.option.set("input_path",self.input_path.get())
-        self.option.set('output_path',self.output_path.get())
         
-        self._find_nii_files()
+        self.nii_paths,*_ = self.preprocessor.find_nii_files()
 
         self.result_text.set("⌛ Brain extraction running...")
         self.label_result.config(fg="blue")

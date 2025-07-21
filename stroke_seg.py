@@ -14,35 +14,34 @@ import tempfile
 import sys
 
 class CLIMain:
-    def __init__(self, input_path, output_path,only_preprocessing, save_preprocessing, model_name= None,suffix=None,viewer=None):
+    def __init__(self, input_path,only_preprocessing, save_preprocessing, model_name= None,suffix=None,viewer=None):
         setup_logger(True)
         self.logger = logging.getLogger()
         print("="*60)
         print("⚠️  This tool is for research purpose only ! ")
         print("="*60)
         self.option = Option()
-        config = Config()
+        self.config = Config()
         self.option.set("input_path",input_path)
-        self.option.set("output_path",output_path)
         self.only_preprocessing = only_preprocessing
         self.save_preprocessing = save_preprocessing
-        self.preprocessor = Preprocessor()
         if not self.only_preprocessing :
             if model_name !=None:
-                models = config.get('default', 'models').split(',')
+                models = self.config.get('default', 'models').split(',')
                 models = [m for m in models]
                 if model_name not in models:
                     self.logger.error(f"{model_name} not in {models}")
                     sys.exit(1)
                 else:
-                    config.set("default","model",model_name)
-                    config.save()
+                    self.config.set("default","model",model_name)
+                    self.config.save()
             if suffix != None:
-                config.set("default","suffix",suffix)
+                self.config.set("default","suffix",suffix)
             self.viewer = viewer
             self.option.set("device",self._check_device())
             self.inference = Inference()
             self.postprocessor = Postprocessor()
+            self.preprocessor = Preprocessor(self.postprocessor)
     
     def _check_device(self):    
         available_providers = ort.get_available_providers()
@@ -52,27 +51,14 @@ class CLIMain:
             device = 'CPUExecutionProvider'
         self.logger.info(f'using device : {device}')
         return device
-
-    
-    def _find_nii_files(self):
-        nii_paths = []
-        input_path=self.option.get("input_path")
-        if os.path.isfile(input_path) and input_path.endswith((".nii.gz",".nii")) :
-            nii_paths.append(input_path)
-        elif os.path.isdir(input_path):
-            for root, _, files in os.walk(input_path):
-                for f in files:
-                    if f.endswith((".nii.gz",".nii")):
-                        nii_paths.append(os.path.join(root, f))
-        self.logger.debug(f'Nombre de fichiers nii trouvés : {len(nii_paths)}')
-        return nii_paths
     
     def run(self):
         start = time.time()
-        imgs=self._find_nii_files()
-        if not imgs:
-            self.logger.error("No NIfTI files (.nii or .nii.gz) found in the specified input path.")
-            raise ValueError("No NIfTI files found.")
+        model_name = self.config.get("default","model")
+        if self.config.get("ModelChannels",model_name)=="2":
+            self.option.set("flair",True)
+        else:
+            self.option.set("flair",False)
         
         if not self.only_preprocessing and self.viewer != None and self.viewer != "default":
             try :
@@ -87,23 +73,34 @@ class CLIMain:
 
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
-        for img in imgs:
+        nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
+        if len(nii_paths)==0:
+            self.logger.error("No NIfTI files (.nii or .nii.gz) found in the specified input path.")
+            raise ValueError("No NIfTI files found.")
+        if self.option.get("flair") and subject != flair:
+            if none_list:
+                none_string = ", ".join(none_list)
+                self.logger.info(f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image.")
+        self.logger.info(f"{len(nii_paths)} subject(s) found")
+        for t1, flair in nii_paths.items():
             try:
-                self.logger.info(f"Starting processing on: {img}")
+                if flair is None:
+                    self.logger.info(f"Starting processing on: {os.path.basename(t1)}")
+                else : 
+                    self.logger.info(f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})")
                 if not self.only_preprocessing :
-                    data, affine, bbox,original_shape, trsf_path, old_spacing, padding  = self.preprocessor.run(img,temp_dir)
+                    data, affine, bbox,original_shape, trsf_path, old_spacing, padding,bet  = self.preprocessor.run(t1,flair,temp_dir)
                     data = self.inference.run(data)
                     if self.viewer != None and i==0:
-                        self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,True)
+                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,True)
                     else : 
-                        self.postprocessor.run(data,affine,img,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding)
+                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet)
                 else : 
-                    self.preprocessor.run(img,temp_dir,True)
+                    self.preprocessor.run(t1,flair,temp_dir,True)
                 i+=1
             except Exception as e:
-                self.logger.error(f"Error while processing {img} : {e}")
+                self.logger.error(f"Error while processing {t1} : {e}")
                 self.preprocessor.clean(temp_dir)
-                raise
         self.preprocessor.clean(temp_dir)
         final = time.time()-start
         self.logger.info(f"Total prediction time: {final:.2f} seconds")
@@ -111,7 +108,6 @@ class CLIMain:
 def parse_args():
     parser = argparse.ArgumentParser(description="Run segmentation pipeline", epilog="If no arguments are provided, the graphical interface will be launched by default")
     parser.add_argument("-i", "--input", required=True, help="Input image path (required)")
-    parser.add_argument("-o", "--output",required=True, help="Output folder (required)")
     parser.add_argument("-m", "--model", help="Model name (optional)")
     parser.add_argument("-s", "--suffix", help="output name suffix (optional)")
     parser.add_argument("-V", "--viewer", nargs="?",const="default",help="Specify a viewer name, or use default if none is given")
@@ -133,7 +129,6 @@ if __name__ == "__main__":
             kwargs['viewer'] = args.viewer
         app = CLIMain(
             input_path=args.input,
-            output_path=args.output,
             only_preprocessing=args.only_preprocessing,
             save_preprocessing=args.save_preprocessing,
             **kwargs

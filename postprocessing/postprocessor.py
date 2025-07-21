@@ -1,10 +1,12 @@
 import logging
+import shutil
 import nibabel
 import os
 import numpy as np
 import time
 
 from manager.config_manager import Config
+from manager.naming import DERIVATIVES
 from manager.option_manager import Option
 from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
@@ -44,10 +46,9 @@ class Postprocessor:
         command=["animaTransformSerieXmlGenerator","-i",trsf_path,"-o",xml_path]
         self.wrapper.run(command)
 
-        output_path= os.path.join(self.option.get("output_path"),os.path.basename(img_path))
-        command=["animaApplyTransformSerie","-i",img_path,"-t",xml_path,"-o",output_path,"-g",ref,"-I"]
+        command=["animaApplyTransformSerie","-i",img_path,"-t",xml_path,"-o",img_path,"-g",ref,"-I"]
         self.wrapper.run(command)
-        return output_path, time.time()-start
+        return time.time()-start
 
     def _print_duration(self,action_name,duration):
         self.logger.info(f"{action_name} took {duration:.2f} seconds.")
@@ -83,6 +84,12 @@ class Postprocessor:
             return filename[:-4]
         else:
             return os.path.splitext(filename)[0]
+
+    def move_to_output(self,img_path):
+        subject_name = os.path.basename(img_path).split("_")[0]
+        output_dir = os.path.join(self.option.get("input_path"),DERIVATIVES,subject_name,"anat")
+        os.makedirs(output_dir,exist_ok=True)
+        return shutil.copy(img_path,os.path.join(output_dir,os.path.basename(img_path)))
 
 
     def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,open_viewer=False):
@@ -123,9 +130,12 @@ class Postprocessor:
 
         action_name="register to reference"
         self._print_action(action_name)
-        output_path,time = self._register_to_reference(nii_file,trsf_path,bet)
+        time = self._register_to_reference(nii_file,trsf_path,bet)
         self._print_duration(action_name,time)
         self.logger.debug(f"open viewer : {open_viewer}")
+
+        output_path = self.move_to_output(nii_file)
+        
         if open_viewer:
             action_name="open viewer"
             self._print_action(action_name)
