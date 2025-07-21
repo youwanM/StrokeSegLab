@@ -22,11 +22,8 @@ class Viewer:
     def update_path(self):
         exist = False
         for v in self.viewers:
-            if v == "itksnap":
-                if platform.system() == "Windows":
+            if v == "itksnap" and platform.system() == "Windows":
                     path = shutil.which("itk-snap")
-                else : 
-                    shutil.which(v)
             else:
                 path = shutil.which(v)
             if path is not None :

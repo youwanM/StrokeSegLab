@@ -284,7 +284,7 @@ class Preprocessor:
             derivatives_path = os.path.join(input_path,DERIVATIVES)
             basepaths =[]
             if os.path.isdir(rawdata_path):
-                basepath.append(rawdata_path)
+                basepaths.append(rawdata_path)
                 if os.path.isdir(derivatives_path):
                     basepaths.append(derivatives_path)
             else:
@@ -329,6 +329,4 @@ class Preprocessor:
                             subject_number+=1
                         else:
                             flair_number+=1
-        self.logger.debug(f'list : {path_dict}')
-        self.logger.debug(f'dict : {nii_paths}')
         return nii_paths,subject_number,flair_number,none_list
