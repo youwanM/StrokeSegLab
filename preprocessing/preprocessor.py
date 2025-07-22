@@ -158,7 +158,7 @@ class Preprocessor:
                 data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,False)
                 if self.option.get("save_bet"):
                     self.postprocessor.move_to_output(bet_t1)
-        elif prefix.endswith(BET):
+        else:
             self.postprocessor.move_to_output(bet_t1)
 
         if self.option.get("flair"):
