@@ -4,3 +4,4 @@ BET = "BET"
 EXTENSIONS = (".nii.gz", ".nii")
 RAWDATA = "rawdata"
 DERIVATIVES = "derivatives"
+MNI = "MNI"

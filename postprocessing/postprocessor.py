@@ -6,7 +6,7 @@ import numpy as np
 import time
 
 from manager.config_manager import Config
-from manager.naming import DERIVATIVES
+from manager.naming import BET, DERIVATIVES, EXTENSIONS, MNI, RAWDATA, T1
 from manager.option_manager import Option
 from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
@@ -77,22 +77,38 @@ class Postprocessor:
         self.viewer.check_viewer(viewer)
     
     def _get_image_basename(self,img_path):
-        filename = os.path.basename(img_path)
-        if filename.endswith(".nii.gz"):
-            return filename[:-7]
-        elif filename.endswith(".nii"):
-            return filename[:-4]
-        else:
-            return os.path.splitext(filename)[0]
+        name = os.path.basename(img_path)
+        for ext in EXTENSIONS:
+            if name.endswith(ext):
+                name = name[:-len(ext)]
+        return name
 
     def move_to_output(self,img_path):
         subject_name = os.path.basename(img_path).split("_")[0]
-        output_dir = os.path.join(self.option.get("input_path"),DERIVATIVES,subject_name,"anat")
+        input_path = self.option.get("input_path")
+        if self.option.get("is_file"):
+            if RAWDATA in input_path :
+                raw_dir = input_path.split(RAWDATA)[0]
+                output_dir = os.path.join(raw_dir,DERIVATIVES,subject_name,"anat")
+            else:
+                output_dir = os.path.dirname(input_path)
+        else :
+            output_dir = os.path.join(input_path,DERIVATIVES,subject_name,"anat")
         os.makedirs(output_dir,exist_ok=True)
         return shutil.copy(img_path,os.path.join(output_dir,os.path.basename(img_path)))
 
-
-    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,open_viewer=False):
+    def _rm_entity(self,img_path,keyword):
+        name = self._get_image_basename(img_path)
+        i = name.find(keyword)
+        if i ==-1:
+            return name
+        name = name[:i]
+        if name.endswith("-"):
+            name = name.rsplit("_",1)[0]
+        name = name.rstrip("_")
+        return name
+    
+    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,open_viewer=False):
 
 
         action_name="convert to segmentation"
@@ -119,20 +135,26 @@ class Postprocessor:
         data = data.squeeze(0)
         self._print_duration(action_name,time)
 
-        basename = self._get_image_basename(input_path)
-        if basename.endswith("_BET"):
-            basename = basename[:-4]
+        basename = self._rm_entity(input_path,BET)
+        if self.option.get("flair"):
+            basename = self._rm_entity(basename,T1)
 
         action_name="saving image to nii"
         self._print_action(action_name)
         nii_file, time = self._save_img(temp_dir,data,basename,affine)
         self._print_duration(action_name,time)
 
-        action_name="register to reference"
-        self._print_action(action_name)
-        time = self._register_to_reference(nii_file,trsf_path,bet)
-        self._print_duration(action_name,time)
-        self.logger.debug(f"open viewer : {open_viewer}")
+        if trsf_path is None or self.option.get("keep_MNI"):
+            new_output = self._get_image_basename(nii_file) + "_" + MNI + ".nii.gz"
+            new_output = os.path.join(os.path.dirname(nii_file),new_output)
+            nii_file = shutil.copy(nii_file,new_output)
+            input_path = MNI_base_image
+        else:
+            action_name="register to reference"
+            self._print_action(action_name)
+            time = self._register_to_reference(nii_file,trsf_path,bet)
+            self._print_duration(action_name,time)
+            self.logger.debug(f"open viewer : {open_viewer}")
 
         output_path = self.move_to_output(nii_file)
         

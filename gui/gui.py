@@ -46,6 +46,7 @@ class GUIMain:
         self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
         self.open_viewer = tk.BooleanVar()
         self.save_bet = tk.BooleanVar()
+        self.keep_MNI = tk.BooleanVar()
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
@@ -58,6 +59,10 @@ class GUIMain:
         help_menu.add_command(label='Help', command=self._show_help)
         help_menu.add_command(label="About", command=self._show_about)
         menubar.add_cascade(label='Help',menu=help_menu)
+        
+        self.option_menu = Menu(menubar,tearoff=0)
+        self.option_menu.add_checkbutton(label="Save brain-extracted image", variable=self.save_bet)
+        menubar.add_cascade(label="Option",menu=self.option_menu)
         self.window.config(menu=menubar)
 
         
@@ -91,9 +96,9 @@ class GUIMain:
         else :
             self.combo_viewers = ttk.Combobox(frame,values=self.viewers,state="readonly")
             self.combo_viewers.current(self.viewers.index(self.config.get("default","viewer")))
-        
-        self.label_save_bet = tk.Label(frame,text="Save brain-extracted image : ")
-        self.save_bet_button = tk.Checkbutton(frame, text="YES/NO", variable=self.save_bet)
+
+        self.label_keep_MNI = tk.Label(frame,text=" Output in MNI space ")
+        self.keep_MNI_button = tk.Checkbutton(frame, text="YES/NO", variable=self.keep_MNI, command=self._on_keep_MNI_toggle)
 
         execution_modes = ["Prediction", "Brain extraction only"]
         self.label_exec_mode = tk.Label(frame, text="Execution mode : ")
@@ -116,7 +121,14 @@ class GUIMain:
 
         messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
         self.window.mainloop()
-
+    def _on_keep_MNI_toggle(self):
+        state = self.keep_MNI.get()
+        if state:
+            self.save_bet.set(False)
+            self.option_menu.entryconfig("Save brain-extracted image",state="disabled")
+        else:
+            self.option_menu.entryconfig("Save brain-extracted image",state="normal")
+            
     def _check_path_filled(self):
         """
         Checks if the input and 
@@ -143,9 +155,10 @@ class GUIMain:
             self.combo_models.grid(row =3, column =1)
             self.label_open_viewer.grid(row=4, column=0, pady=10)
             self.viewer_button.grid(row=4,column=1)
-            self.label_save_bet.grid(row=5,column=0)
-            self.save_bet_button.grid(row=5,column=1)
+            self.label_keep_MNI.grid(row=5,column=0)
+            self.keep_MNI_button.grid(row=5,column=1)
             self.label_channel.grid(row=3,column=2)
+            self.option_menu.entryconfig("Save brain-extracted image",state="normal")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid(row=4, column=2)
             else : 
@@ -157,9 +170,11 @@ class GUIMain:
             self.combo_models.grid_remove()
             self.label_open_viewer.grid_remove()
             self.viewer_button.grid_remove()
-            self.label_save_bet.grid_remove()
-            self.save_bet_button.grid_remove()
             self.label_channel.grid_remove()
+            self.label_keep_MNI.grid_remove()
+            self.keep_MNI_button.grid_remove()
+            self.save_bet.set(False)
+            self.option_menu.entryconfig("Save brain-extracted image",state="disabled")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid_remove()
             else : 
@@ -269,6 +284,11 @@ class GUIMain:
         else :
             self.option.set("save_bet", False)
         
+        if self.keep_MNI.get():
+            self.option.set("keep_MNI", True)
+        else:
+            self.option.set("keep_MNI", False)
+        
         self.nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if self.option.get("flair") and subject != flair:
             if none_list:
@@ -304,14 +324,14 @@ class GUIMain:
                 s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
                 self.logger.info(f"Starting processing on: {t1}")
                 self.window.after(0,self._update_stringvar,self.working_on_text,s)
-                data, affine, bbox,original_shape, trsf_path, old_spacing, padding, bet  = self.preprocessor.run(t1,flair,temp_dir)
+                data, affine, bbox,original_shape, trsf_path, old_spacing, padding, bet, MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 data = self.inference.run(data)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 if self.open_viewer.get() and i==0:
-                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,True)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,True)
                 else : 
                     self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet)
                 i+=1
@@ -336,19 +356,19 @@ class GUIMain:
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
-        for img in self.nii_paths:
+        for t1, flair in self.nii_paths.items():
             try:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
-                s = f"Working on: {os.path.basename(img)} ({i+1}/{len_nii_paths})"
+                s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
+                self.logger.info(f"Starting processing on: {t1}")
                 self.window.after(0,self._update_stringvar,self.working_on_text,s)
-                self.logger.info(f"Starting processing on: {img}")
-                self.preprocessor.run(img,temp_dir,True)
+                self.preprocessor.run(t1,flair,temp_dir,True)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 i+=1
             except Exception as e:
-                self.logger.error(f"Erreur lors du traitement de {img} : {e}")
+                self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
         self.window.after(0,self._update_result)
         self.preprocessor.clean(temp_dir)

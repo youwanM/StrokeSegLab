@@ -1,6 +1,6 @@
 import logging
 from manager.config_manager import Config
-from manager.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, RAWDATA, T1
+from manager.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, MNI, RAWDATA, T1
 from manager.option_manager import Option
 from preprocessing.brain_extraction import BrainExtracter
 from preprocessing.resampling import Resampler
@@ -93,7 +93,7 @@ class Preprocessor:
         start = time.time()
         img = nib.load(img_path)
         reoriented_img = nib.as_closest_canonical(img)
-        output_path=img_path.replace('.nii.gz','RAS.nii.gz')
+        output_path=img_path.replace('.nii.gz','_RAS.nii.gz')
         nib.save(reoriented_img, output_path)
         return output_path, time.time()-start
 
@@ -140,7 +140,7 @@ class Preprocessor:
     def run(self,t1,flair,temp_dir,bet_only=False):
         
         prefix = os.path.join(temp_dir,self._get_image_basename(t1))
-        if not prefix.endswith("_BET"):
+        if not prefix.endswith((BET,MNI)):
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
             action_name="brain extraction"
@@ -152,21 +152,24 @@ class Preprocessor:
         else :
             bet_t1 = shutil.copy(t1,temp_dir)
         if not bet_only:
-            data_t1, affine, bbox, original_shape, trsf_path, spacing, padding = self._preprocess_modality(bet_t1)
-            if self.option.get("save_bet"):
-                self.postprocessor.move_to_output(bet_t1)
-        else : 
+            if prefix.endswith(MNI):
+                data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,True)
+            else:
+                data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,False)
+                if self.option.get("save_bet"):
+                    self.postprocessor.move_to_output(bet_t1)
+        elif prefix.endswith(BET):
             self.postprocessor.move_to_output(bet_t1)
 
         if self.option.get("flair"):
             if flair is not None:
                 prefix = os.path.join(temp_dir,self._get_image_basename(flair))
-                if not prefix.endswith("_BET"):
+                if not prefix.endswith((BET,MNI)):
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                     action_name = "register FLAIR to T1"
                     self._print_action(action_name)
-                    flair_t1,_, time = self._register_to_reference(flair, t1,"T1",prefix=prefix)
+                    flair_t1,_, time = self._register_to_reference(flair, t1,T1,prefix=prefix)
                     self._print_duration(action_name, time)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
@@ -179,43 +182,58 @@ class Preprocessor:
                 else :
                     bet_flair = shutil.copy(flair,temp_dir)
                 if not bet_only:
-                    data_flair, *_ = self._preprocess_modality(bet_flair,bbox=bbox)
+                    if prefix.endswith(MNI):
+                        data_flair, *_ = self._preprocess_modality(bet_flair,True,bbox=bbox)
+                    else : 
+                        data_flair, *_ = self._preprocess_modality(bet_flair,False,bbox=bbox)
+                        if self.option.get("save_bet"):
+                            self.postprocessor.move_to_output(bet_flair)
                     data = np.concatenate([data_t1, data_flair], axis=0)
-                    if self.option.get("save_bet"):
-                        self.postprocessor.move_to_output(bet_flair)
-                    return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1
+                    return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
                 else : 
                     self.postprocessor.move_to_output(bet_flair)
             else:
                 raise ValueError("FLAIR image is required but was not provided")
         elif not bet_only:
-            return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1
+            return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
 
     def _print_shape(self,data):
         self.logger.debug(f'data shape : {data.shape}')
     
-    def _preprocess_modality(self,modality,bbox = None):
-        action_name="bias correction"
-        self._print_action(action_name)
-        n4_output,time=self._bias_correct(modality)
-        self._print_duration(action_name,time)
-        if self.gui != None and self.gui.check_stop():
-            raise InterruptedError("Action was cancelled by the user.")
+    def _preprocess_modality(self,modality,is_MNI,bbox = None):
+        if not is_MNI:
+            action_name="bias correction"
+            self._print_action(action_name)
+            n4_output,time=self._bias_correct(modality)
+            self._print_duration(action_name,time)
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
 
-        action_name="reorient to RAS"
-        self._print_action(action_name)
-        RAS_output,time=self._reorient_RAS(n4_output)
-        self._print_duration(action_name,time)
-        if self.gui != None and self.gui.check_stop():
-            raise InterruptedError("Action was cancelled by the user.")
-        
-        action_name="register to MNI"
-        self._print_action(action_name)
-        MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path,"MNI")
-        self._print_duration(action_name,time)
-        if self.gui != None and self.gui.check_stop():
-            raise InterruptedError("Action was cancelled by the user.")
+            action_name="reorient to RAS"
+            self._print_action(action_name)
+            RAS_output,time=self._reorient_RAS(n4_output)
+            self._print_duration(action_name,time)
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+            
+            action_name="register to MNI"
+            self._print_action(action_name)
+            MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path,MNI)
+            self._print_duration(action_name,time)
+            if self.gui != None and self.gui.check_stop():
+                raise InterruptedError("Action was cancelled by the user.")
+        else : 
+            MNI_output = modality
+            trsf_path = None
 
+        if self.option.get("keep_MNI"):
+            if BET in MNI_output:
+                new_output = self._rm_entity(MNI_output,BET) + "_" + MNI + ".nii.gz"
+                new_output = os.path.join(os.path.dirname(MNI_output),new_output)
+                MNI_output=shutil.copy(MNI_output,new_output)
+            MNI_base_image = self.postprocessor.move_to_output(MNI_output)
+        else:
+            MNI_base_image = None
     
         data, spacing, affine, original_shape = self._load_img(MNI_output)
         self._print_shape(data)
@@ -248,7 +266,7 @@ class Preprocessor:
         data,padding,time = self._padding(data)
         self._print_duration(action_name,time)
         self._print_shape(data)
-        return data, affine, bbox, original_shape, trsf_path, spacing, padding
+        return data, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image
     
     def clean(self,temp_dir):
         if os.path.exists(temp_dir):
@@ -293,17 +311,22 @@ class Preprocessor:
                 for root, _, files in os.walk(basepath):
                     for f in files:
                         if f.endswith(EXTENSIONS):
-                            if DERIVATIVES in root and BET not in f:
+                            if DERIVATIVES in root and BET not in f and not (self.option.get("keep_MNI",False) and MNI in f):
                                 continue
                             f_id = self._get_image_basename(f)
                             if BET in f:
                                 f_id = self._rm_entity(f_id,BET)
                                 path_dict.setdefault(f_id,{})[BET]=os.path.join(root, f)
+                            elif MNI in f:
+                                f_id = self._rm_entity(f_id,MNI)
+                                path_dict.setdefault(f_id,{})[MNI]=os.path.join(root, f)
                             else : 
                                 path_dict.setdefault(f_id,{})["RAW"]=os.path.join(root, f)                        
             subject = {}
             for name,files in path_dict.items():
-                if BET in files:
+                if MNI in files:
+                    f = files[MNI]
+                elif BET in files:
                     f = files[BET]
                 else : 
                     f = files["RAW"]
@@ -329,4 +352,5 @@ class Preprocessor:
                             subject_number+=1
                         else:
                             flair_number+=1
+        self.logger.debug(nii_paths)
         return nii_paths,subject_number,flair_number,none_list
