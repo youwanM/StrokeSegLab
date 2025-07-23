@@ -5,3 +5,4 @@ EXTENSIONS = (".nii.gz", ".nii")
 RAWDATA = "rawdata"
 DERIVATIVES = "derivatives"
 MNI = "MNI"
+PMAP = "pmap"

@@ -1,13 +1,13 @@
 import logging
 import os
 import onnxruntime as ort
-from manager.config_manager import Config
-from manager.option_manager import Option
+from utils.config_manager import Config
+from utils.option_manager import Option
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import time
 
-from manager.path import MODEL_DIR
+from utils.path import MODEL_DIR
 
 class Inference:
     def __init__(self,gui=None):

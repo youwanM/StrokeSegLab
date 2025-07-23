@@ -1,4 +1,4 @@
-from manager.singleton import SingletonMeta
+from utils.singleton import SingletonMeta
 
 class Option(metaclass=SingletonMeta):
     def __init__(self):

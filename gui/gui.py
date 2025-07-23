@@ -9,9 +9,9 @@ import os
 from gui.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
 from inference.inference import Inference
 from logger.logger import setup_logger
-from manager.config_manager import Config
-from manager.option_manager import Option
-from manager.path import LOGO
+from utils.config_manager import Config
+from utils.option_manager import Option
+from utils.path import LOGO
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import threading
@@ -33,8 +33,8 @@ class GUIMain:
         self.option = Option()
         self.config = Config()
         self.option.set("device",self._check_device())
+        self.preprocessor = Preprocessor(gui=self)
         self.postprocessor = Postprocessor(gui=self)
-        self.preprocessor = Preprocessor(self.postprocessor,gui=self)
         self.inference = Inference(gui=self)
         self.running = False
         self.nii_paths = {}
@@ -47,6 +47,7 @@ class GUIMain:
         self.open_viewer = tk.BooleanVar()
         self.save_bet = tk.BooleanVar()
         self.keep_MNI = tk.BooleanVar()
+        self.save_pmap = tk.BooleanVar(value=False)
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
@@ -64,6 +65,7 @@ class GUIMain:
         self.option_menu = Menu(menubar,tearoff=0)
         self.option_menu.add_checkbutton(label="Save brain-extracted image", variable=self.save_bet)
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
+        self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
         menubar.add_cascade(label="Option",menu=self.option_menu)
         self.window.config(menu=menubar)
 
@@ -162,6 +164,8 @@ class GUIMain:
             self.keep_MNI_button.grid(row=5,column=1)
             self.label_channel.grid(row=3,column=2)
             self.option_menu.entryconfig("Save brain-extracted image",state="normal")
+            self.option_menu.entryconfig("Save probability map",state="normal")
+            self.option_menu.entryconfig("Threshold",state="normal")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid(row=4, column=2)
             else : 
@@ -177,7 +181,10 @@ class GUIMain:
             self.label_keep_MNI.grid_remove()
             self.keep_MNI_button.grid_remove()
             self.save_bet.set(False)
+            self.save_pmap.set(False)
             self.option_menu.entryconfig("Save brain-extracted image",state="disabled")
+            self.option_menu.entryconfig("Save probability map",state="disabled")
+            self.option_menu.entryconfig("Threshold",state="disabled")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid_remove()
             else : 
@@ -187,6 +194,8 @@ class GUIMain:
         threshold_window= tk.Toplevel(self.window)
         threshold = tk.Scale(threshold_window,orient=tk.HORIZONTAL,from_=0, to=1, resolution=0.01, label="Threshold", variable=self.threshold_var)
         threshold.pack()
+        ok_button = tk.Button(threshold_window, text="OK", command=threshold_window.destroy)
+        ok_button.pack(pady=10)
     def _show_about(self):
         size = 500
         about_window= tk.Toplevel(self.window)
@@ -290,6 +299,11 @@ class GUIMain:
         else :
             self.option.set("save_bet", False)
         
+        if self.save_pmap.get():
+            self.option.set("save_pmap", True)
+        else:
+            self.option.set("save_pmap",False)
+        
         if self.keep_MNI.get():
             self.option.set("keep_MNI", True)
         else:
@@ -353,7 +367,6 @@ class GUIMain:
         self.preprocessor.clean(temp_dir)
 
     def _run_bet(self):
-
         self.option.set("input_path",self.input_path.get())
         
         self.nii_paths,*_ = self.preprocessor.find_nii_files()

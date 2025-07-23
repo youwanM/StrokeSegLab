@@ -1,7 +1,7 @@
 import logging
 import os
 import subprocess
-from manager.path import ANIMA_DIR
+from utils.path import ANIMA_DIR
 
 class AnimaWrapper:
     def __init__(self):

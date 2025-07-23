@@ -1,5 +1,5 @@
 import time
-from manager.path import ATLAS_DIR
+from utils.path import ATLAS_DIR
 import os
 class BrainExtracter:
 

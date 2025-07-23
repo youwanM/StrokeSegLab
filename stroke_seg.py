@@ -2,8 +2,8 @@ import argparse
 import time
 from gui.gui import GUIMain
 from inference.inference import Inference
-from manager.config_manager import Config
-from manager.option_manager import Option
+from utils.config_manager import Config
+from utils.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 from logger.logger import setup_logger
@@ -14,7 +14,9 @@ import tempfile
 import sys
 
 class CLIMain:
-    def __init__(self, input_path,only_preprocessing, save_preprocessing,keep_MNI, model_name= None,suffix=None,viewer=None,threshold=None):
+    def __init__(self, input_path,only_preprocessing, save_preprocessing,keep_MNI,save_pmap,threshold=None, model_name= None,suffix=None,viewer=None):
+        if only_preprocessing and (save_preprocessing or keep_MNI or save_pmap or model_name is not None or suffix is not None or viewer is not None or threshold is not None):
+            raise ValueError("When only_preprocessing is True, no other option must be set !!")
         setup_logger(True)
         self.logger = logging.getLogger()
         print("="*60)
@@ -25,11 +27,16 @@ class CLIMain:
         self.option.set("input_path",input_path)
         self.only_preprocessing = only_preprocessing
         self.save_preprocessing = save_preprocessing 
-        self.threshold = threshold
+        self.threshold = 0.5 if threshold is None else threshold
         if keep_MNI:
             self.option.set("keep_MNI", True)
         else:
             self.option.set("keep_MNI", False)
+        if save_pmap:
+            self.option.set("save_pmap", True)
+        else:
+            self.option.set("save_pmap",False)
+        self.preprocessor = Preprocessor()
         if not self.only_preprocessing :
             if model_name !=None:
                 models = self.config.get('default', 'models').split(',')
@@ -46,7 +53,6 @@ class CLIMain:
             self.option.set("device",self._check_device())
             self.inference = Inference()
             self.postprocessor = Postprocessor()
-            self.preprocessor = Preprocessor(self.postprocessor)
     
     def _check_device(self):    
         available_providers = ort.get_available_providers()
@@ -105,7 +111,6 @@ class CLIMain:
                 i+=1
             except Exception as e:
                 self.logger.error(f"Error while processing {t1} : {e}")
-                self.preprocessor.clean(temp_dir)
         self.preprocessor.clean(temp_dir)
         final = time.time()-start
         self.logger.info(f"Total prediction time: {final:.2f} seconds")
@@ -119,7 +124,8 @@ def parse_args():
     parser.add_argument("--only-preprocessing", action="store_true", help="Run only the preprocessing step and stop")
     parser.add_argument("--save-preprocessing", action="store_true", help="Save the brain-extracted image")
     parser.add_argument("--keep-mni", action="store_true", help="Save the input and output images registered to the MNI space")
-    parser.add_argument("-t", "--threshold",  type=float, default=0.5, help="Threshold (optional)")
+    parser.add_argument("-t", "--threshold",  type=float, default=None, help="Threshold (optional)")
+    parser.add_argument("--pmap", action="store_true", help="Save probability map")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -141,6 +147,7 @@ if __name__ == "__main__":
             only_preprocessing=args.only_preprocessing,
             save_preprocessing=args.save_preprocessing,
             keep_MNI=args.keep_mni,
+            save_pmap=args.pmap,
             **kwargs
         )
         app.run()

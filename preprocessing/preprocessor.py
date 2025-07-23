@@ -1,14 +1,14 @@
 import logging
-from manager.config_manager import Config
-from manager.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, MNI, RAWDATA, T1
-from manager.option_manager import Option
+from utils.config_manager import Config
+from utils.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, MNI, RAWDATA, T1
+from utils.option_manager import Option
 from preprocessing.brain_extraction import BrainExtracter
 from preprocessing.resampling import Resampler
 from preprocessing.wrapper import AnimaWrapper
 from scipy.ndimage import binary_fill_holes
 from preprocessing.utils import get_bbox_from_mask, bounding_box_to_slice
 import time
-from manager.path import ATLAS_DIR
+from utils.path import ATLAS_DIR
 
 import numpy as np
 import nibabel
@@ -16,9 +16,10 @@ import os
 import shutil
 import nibabel as nib
 
+from utils.processing_utils import get_image_basename, move_to_output, rm_entity
+
 class Preprocessor:
-    def __init__(self,postprocessor,gui=None):
-        self.postprocessor = postprocessor
+    def __init__(self,gui=None):
         self.logger = logging.getLogger()
         self.option = Option()
         self.config = Config()
@@ -60,12 +61,6 @@ class Preprocessor:
         self.wrapper.run(command)
         return output_path, time.time()-start
 
-    def _get_image_basename(self,img_path):
-        name = os.path.basename(img_path)
-        for ext in EXTENSIONS:
-            if name.endswith(ext):
-                name = name[:-len(ext)]
-        return name
         
     def _register_to_reference(self,img_path,ref,suffix,prefix=None):
         start = time.time()
@@ -139,7 +134,7 @@ class Preprocessor:
 
     def run(self,t1,flair,temp_dir,bet_only=False):
         
-        prefix = os.path.join(temp_dir,self._get_image_basename(t1))
+        prefix = os.path.join(temp_dir,get_image_basename(t1))
         if not prefix.endswith((BET,MNI)):
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
@@ -157,13 +152,13 @@ class Preprocessor:
             else:
                 data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,False)
                 if self.option.get("save_bet"):
-                    self.postprocessor.move_to_output(bet_t1)
+                    move_to_output(bet_t1)
         else:
-            self.postprocessor.move_to_output(bet_t1)
+            move_to_output(bet_t1)
 
         if self.option.get("flair"):
             if flair is not None:
-                prefix = os.path.join(temp_dir,self._get_image_basename(flair))
+                prefix = os.path.join(temp_dir,get_image_basename(flair))
                 if not prefix.endswith((BET,MNI)):
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
@@ -187,11 +182,11 @@ class Preprocessor:
                     else : 
                         data_flair, *_ = self._preprocess_modality(bet_flair,False,bbox=bbox)
                         if self.option.get("save_bet"):
-                            self.postprocessor.move_to_output(bet_flair)
+                            move_to_output(bet_flair)
                     data = np.concatenate([data_t1, data_flair], axis=0)
                     return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
                 else : 
-                    self.postprocessor.move_to_output(bet_flair)
+                    move_to_output(bet_flair)
             else:
                 raise ValueError("FLAIR image is required but was not provided")
         elif not bet_only:
@@ -228,10 +223,10 @@ class Preprocessor:
 
         if self.option.get("keep_MNI"):
             if BET in MNI_output:
-                new_output = self._rm_entity(MNI_output,BET) + "_" + MNI + ".nii.gz"
+                new_output = rm_entity(MNI_output,BET) + "_" + MNI + ".nii.gz"
                 new_output = os.path.join(os.path.dirname(MNI_output),new_output)
                 MNI_output=shutil.copy(MNI_output,new_output)
-            MNI_base_image = self.postprocessor.move_to_output(MNI_output)
+            MNI_base_image = move_to_output(MNI_output)
         else:
             MNI_base_image = None
     
@@ -275,16 +270,7 @@ class Preprocessor:
                 self.logger.info(f"Temporary directory '{temp_dir}' has been removed.")
             except Exception as e:
                 self.logger.error(f"Failed to delete temp directory '{temp_dir}': {e}")
-    def _rm_entity(self,img_path,keyword):
-        name = self._get_image_basename(img_path)
-        i = name.find(keyword)
-        if i ==-1:
-            return name
-        name = name[:i]
-        if name.endswith("-"):
-            name = name.rsplit("_",1)[0]
-        name = name.rstrip("_")
-        return name
+
     def find_nii_files(self):
         nii_paths = {}
         path_dict = {}
@@ -295,7 +281,7 @@ class Preprocessor:
         if os.path.isfile(input_path) and input_path.endswith(EXTENSIONS) :
             nii_paths[input_path]=None
             subject_number = 1
-            self.option.set("is_file",True)
+            self.option.set("is_file",True) 
         elif os.path.isdir(input_path):
             self.option.set("is_file",False)
             rawdata_path = os.path.join(input_path,RAWDATA)
@@ -313,12 +299,12 @@ class Preprocessor:
                         if f.endswith(EXTENSIONS):
                             if DERIVATIVES in root and BET not in f and not (self.option.get("keep_MNI",False) and MNI in f):
                                 continue
-                            f_id = self._get_image_basename(f)
+                            f_id = get_image_basename(f)
                             if BET in f:
-                                f_id = self._rm_entity(f_id,BET)
+                                f_id = rm_entity(f_id,BET)
                                 path_dict.setdefault(f_id,{})[BET]=os.path.join(root, f)
                             elif MNI in f:
-                                f_id = self._rm_entity(f_id,MNI)
+                                f_id = rm_entity(f_id,MNI)
                                 path_dict.setdefault(f_id,{})[MNI]=os.path.join(root, f)
                             else : 
                                 path_dict.setdefault(f_id,{})["RAW"]=os.path.join(root, f)                        
@@ -332,10 +318,10 @@ class Preprocessor:
                     f = files["RAW"]
                 if self.option.get("flair"):
                     if T1 in name:
-                        subject_id = self._rm_entity(name,T1)
+                        subject_id = rm_entity(name,T1)
                         subject.setdefault(subject_id,{})["T1"]=f
                     elif FLAIR in name:
-                        subject_id = self._rm_entity(name,FLAIR)
+                        subject_id = rm_entity(name,FLAIR)
                         subject.setdefault(subject_id,{})['FLAIR']=f
                 else : 
                     nii_paths[f]=None
@@ -352,5 +338,4 @@ class Preprocessor:
                             subject_number+=1
                         else:
                             flair_number+=1
-        self.logger.debug(nii_paths)
         return nii_paths,subject_number,flair_number,none_list
