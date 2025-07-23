@@ -14,7 +14,7 @@ import tempfile
 import sys
 
 class CLIMain:
-    def __init__(self, input_path,only_preprocessing, save_preprocessing, model_name= None,suffix=None,viewer=None):
+    def __init__(self, input_path,only_preprocessing, save_preprocessing,keep_MNI, model_name= None,suffix=None,viewer=None,threshold=None):
         setup_logger(True)
         self.logger = logging.getLogger()
         print("="*60)
@@ -24,7 +24,12 @@ class CLIMain:
         self.config = Config()
         self.option.set("input_path",input_path)
         self.only_preprocessing = only_preprocessing
-        self.save_preprocessing = save_preprocessing
+        self.save_preprocessing = save_preprocessing 
+        self.threshold = threshold
+        if keep_MNI:
+            self.option.set("keep_MNI", True)
+        else:
+            self.option.set("keep_MNI", False)
         if not self.only_preprocessing :
             if model_name !=None:
                 models = self.config.get('default', 'models').split(',')
@@ -89,12 +94,12 @@ class CLIMain:
                 else : 
                     self.logger.info(f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})")
                 if not self.only_preprocessing :
-                    data, affine, bbox,original_shape, trsf_path, old_spacing, padding,bet  = self.preprocessor.run(t1,flair,temp_dir)
+                    data, affine, bbox,original_shape, trsf_path, old_spacing, padding,bet,MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
                     data = self.inference.run(data)
                     if self.viewer != None and i==0:
-                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,True)
+                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold,True)
                     else : 
-                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet)
+                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold)
                 else : 
                     self.preprocessor.run(t1,flair,temp_dir,True)
                 i+=1
@@ -113,6 +118,8 @@ def parse_args():
     parser.add_argument("-V", "--viewer", nargs="?",const="default",help="Specify a viewer name, or use default if none is given")
     parser.add_argument("--only-preprocessing", action="store_true", help="Run only the preprocessing step and stop")
     parser.add_argument("--save-preprocessing", action="store_true", help="Save the brain-extracted image")
+    parser.add_argument("--keep-mni", action="store_true", help="Save the input and output images registered to the MNI space")
+    parser.add_argument("-t", "--threshold",  type=float, default=0.5, help="Threshold (optional)")
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -127,10 +134,13 @@ if __name__ == "__main__":
             kwargs['suffix'] = args.suffix
         if args.viewer:
             kwargs['viewer'] = args.viewer
+        if args.threshold:
+            kwargs['threshold'] = args.threshold
         app = CLIMain(
             input_path=args.input,
             only_preprocessing=args.only_preprocessing,
             save_preprocessing=args.save_preprocessing,
+            keep_MNI=args.keep_mni,
             **kwargs
         )
         app.run()

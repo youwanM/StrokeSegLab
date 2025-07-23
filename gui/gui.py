@@ -53,6 +53,7 @@ class GUIMain:
         self.working_on_text = tk.StringVar()
         self.result_text = tk.StringVar()
         self.subject_number_text = tk.StringVar()
+        self.threshold_var = tk.DoubleVar(value=0.5)
 
         menubar = Menu(self.window)
         help_menu = Menu(menubar, tearoff=0)
@@ -62,6 +63,7 @@ class GUIMain:
         
         self.option_menu = Menu(menubar,tearoff=0)
         self.option_menu.add_checkbutton(label="Save brain-extracted image", variable=self.save_bet)
+        self.option_menu.add_command(label='Threshold',command=self._show_threshold)
         menubar.add_cascade(label="Option",menu=self.option_menu)
         self.window.config(menu=menubar)
 
@@ -121,6 +123,7 @@ class GUIMain:
 
         messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
         self.window.mainloop()
+
     def _on_keep_MNI_toggle(self):
         state = self.keep_MNI.get()
         if state:
@@ -180,7 +183,10 @@ class GUIMain:
             else : 
                 self.combo_viewers.grid_remove()
             
-
+    def _show_threshold(self):
+        threshold_window= tk.Toplevel(self.window)
+        threshold = tk.Scale(threshold_window,orient=tk.HORIZONTAL,from_=0, to=1, resolution=0.01, label="Threshold", variable=self.threshold_var)
+        threshold.pack()
     def _show_about(self):
         size = 500
         about_window= tk.Toplevel(self.window)
@@ -314,6 +320,7 @@ class GUIMain:
 
 
     def _predict(self):
+        threshold = self.threshold_var.get()
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
@@ -321,8 +328,12 @@ class GUIMain:
             try:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
-                s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
-                self.logger.info(f"Starting processing on: {t1}")
+                if flair is None:
+                    s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
+                    self.logger.info(f"Starting processing on: {os.path.basename(t1)}")
+                else :
+                    s=f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})"
+                    self.logger.info(f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})")
                 self.window.after(0,self._update_stringvar,self.working_on_text,s)
                 data, affine, bbox,original_shape, trsf_path, old_spacing, padding, bet, MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
                 if self.check_stop():
@@ -331,9 +342,9 @@ class GUIMain:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 if self.open_viewer.get() and i==0:
-                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,True)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold,True)
                 else : 
-                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet)
+                    self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold)
                 i+=1
             except Exception as e:
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")

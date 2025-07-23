@@ -4,7 +4,7 @@ import nibabel
 import os
 import numpy as np
 import time
-
+from scipy.special import expit
 from manager.config_manager import Config
 from manager.naming import BET, DERIVATIVES, EXTENSIONS, MNI, RAWDATA, T1
 from manager.option_manager import Option
@@ -30,15 +30,16 @@ class Postprocessor:
         nibabel.save(out_img, output_file)
         return output_file, time.time()-start
     
-    def _convert_to_segmentation(self, data):
+    def _convert_to_segmentation(self, data,threshold):
         start = time.time()
-        self.logger.debug(f"data shape : {data.shape}")
+        self.logger.debug(f"threshold : {threshold}")
         data = data[0]
-        self.logger.debug(f"data[0] shape : {data.shape}")
-        for i in range(data.shape[0]):
-            self.logger.debug(f"Stats for channel {i}: min={np.min(data[i])}, max={np.max(data[i])}, mean={np.mean(data[i]):.4f}, std={np.std(data[i]):.4f}, non-zero={np.count_nonzero(data[i])}")
-        data = np.argmax(data, axis=0).astype(np.uint8)
-        return data, time.time()-start
+        data = data[1]
+        data = expit(data)
+        # data = softmax(data,axis=0)
+        # data = data[1]
+        seg = (data >= threshold).astype(np.uint8)
+        return seg, time.time()-start
     
     def _register_to_reference(self,img_path,trsf_path,ref):
         start = time.time()
@@ -108,12 +109,12 @@ class Postprocessor:
         name = name.rstrip("_")
         return name
     
-    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,open_viewer=False):
+    def run(self,data,affine,input_path,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold,open_viewer=False):
 
 
         action_name="convert to segmentation"
         self._print_action(action_name)
-        data,time = self._convert_to_segmentation(data)
+        data,time = self._convert_to_segmentation(data,threshold)
         self._print_duration(action_name,time)
 
         action_name="remove padding"
