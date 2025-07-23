@@ -10,6 +10,7 @@ from gui.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSIO
 from inference.inference import Inference
 from logger.logger import setup_logger
 from utils.config_manager import Config
+from utils.models_manager import add_model, update_models
 from utils.option_manager import Option
 from utils.path import LOGO
 from postprocessing.postprocessor import Postprocessor
@@ -66,6 +67,7 @@ class GUIMain:
         self.option_menu.add_checkbutton(label="Save brain-extracted image", variable=self.save_bet)
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
+        self.option_menu.add_command(label='Import a model',command=self._show_import_model)
         menubar.add_cascade(label="Option",menu=self.option_menu)
         self.window.config(menu=menubar)
 
@@ -230,6 +232,49 @@ class GUIMain:
         help_window.logo = tk.PhotoImage(file=LOGO)
         tk.Label(help_window, text = HELP, justify='left',wraplength=size ).pack(anchor='w')
         tk.Button(help_window, text="Close", command=help_window.destroy).pack(anchor='e',padx=10,pady=[0,10])
+    def _show_import_model(self):
+        import_model_window= tk.Toplevel(self.window)
+        import_model_window.transient(self.window)
+        import_model_window.title("Import Model")
+        self.model_to_import = tk.StringVar(value="")
+        self.status_import_text = tk.StringVar(value="")
+        tk.Entry(import_model_window, textvariable=self.model_to_import, state='readonly', width=50).pack(padx=10, pady=5)
+        self.label_import_model = tk.Label(import_model_window, textvariable=self.status_import_text)
+        self.label_import_model.pack(padx=10, pady=5)
+        button_frame = tk.Frame(import_model_window)
+        button_frame.pack(padx=10, pady=10)
+
+        tk.Button(button_frame, text='Select Model', command=self._select_model).pack(side='left', padx=5)
+        tk.Button(button_frame, text='Import', command=self._import_model).pack(side='left', padx=5)
+        tk.Button(button_frame, text='Close', command=import_model_window.destroy).pack(side='left', padx=5)
+
+    def _select_model(self):
+        filename = filedialog.askopenfilename(title='Select model file')
+        if filename:
+            self.model_to_import.set(filename)
+            self.status_import_text.set("")
+    
+    def _import_model(self):
+        try:
+            update_models()
+            model_name = add_model(self.model_to_import.get())
+            s = f"The model {model_name} was successfully imported"
+            self.logger.info(s)
+            self.status_import_text.set(s)
+            self.label_import_model.config(fg="green")
+            update_models()
+            self.models = [m.strip() for m in self.config.get("default", "models").split(",")]
+            self.combo_models['values'] = self.models
+        except ValueError as e:
+            s=f"Import failed: {e}"
+            self.logger.error(s)
+            self.status_import_text.set(s)
+            self.label_import_model.config(fg="red")
+        except Exception as e:
+            s = f"Unexpected error during model import: {e}"
+            self.logger.error(s)
+            self.status_import_text.set(s)
+            self.label_import_model.config(fg="red")
 
     def _select_input_folder(self):
         self.input_path.set(filedialog.askdirectory(title='input path'))

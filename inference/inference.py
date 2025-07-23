@@ -2,6 +2,7 @@ import logging
 import os
 import onnxruntime as ort
 from utils.config_manager import Config
+from utils.models_manager import update_models
 from utils.option_manager import Option
 import numpy as np
 from scipy.ndimage import gaussian_filter
@@ -23,30 +24,11 @@ class Inference:
 
         # Initialize ONNX Runtime session
         self.config = Config()
-        self._update_models()
+        self.model_path = option.get("model_path")
+        if self.model_path is None:
+            update_models()
         
         self.patch_size = [128,128,128]
-    
-    def _update_models(self):
-        models = []
-        for _, _, files in os.walk(MODEL_DIR):
-            for f in files:
-                if f.endswith(".onnx"):
-                    models.append(f[:-5])
-        models_string = ",".join(models)
-        if models_string != self.config.get("default","models"):
-            if self.config.get("default","model") not in models:
-                self.config.set("default","model",models[0])
-            self.config.set("default","models",models_string)
-            self.config.clear("ModelChannels")
-            for model in models:
-                model_path = os.path.join(MODEL_DIR, model+".onnx")
-                session = ort.InferenceSession(model_path)
-                input_tensor = session.get_inputs()[0]
-                channels = input_tensor.shape[1]
-                self.config.set("ModelChannels",model,str(channels))
-            self.config.save()
-
 
     
     def _compute_steps(self,image_size, patch_size, step_size =0.5):
@@ -92,13 +74,14 @@ class Inference:
     def run(self,data):
         assert data.ndim == 4, f"Expected 4D input (c, x, y, z), got {data.shape}"
         _, x, y, z = data.shape
-        model = self.config.get("default","model")
-        model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
-        self.logger.debug(f'ONNX model path : {model_path}')
+        if self.model_path is None : 
+            model = self.config.get("default","model")
+            self.model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
+        self.logger.debug(f'ONNX model path : {self.model_path}')
         
         # Set up ONNX Runtime providers based on device
         providers = [self.device]
-        self.ort_session = ort.InferenceSession(model_path, providers=providers)
+        self.ort_session = ort.InferenceSession(self.model_path, providers=providers)
         self.logger.info("ONNX model loaded successfully.")
         steps = self._compute_steps((x, y, z),self.patch_size)
         gaussian = self._compute_gaussian(self.patch_size)
