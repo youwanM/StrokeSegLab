@@ -86,11 +86,14 @@ class GUIMain:
         self.label_model = tk.Label(frame, text="Model : ")
         self.models = self.config.get("default","models").split(',')
         self.models = [m for m in self.models]
-        self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
-        self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
-        self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
-        self.combo_models.current(self.models.index(self.config.get("default","model")))
-        self._on_model_change()
+        if not self.models:
+            self.label_model_not_found = tk.Label(frame, text="No model found",fg="red")
+        else :
+            self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
+            self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
+            self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
+            self.combo_models.current(self.models.index(self.config.get("default","model")))
+            self._on_model_change()
 
         self.label_open_viewer = tk.Label(frame, text="Open viewer : ")
         self.viewer_button = tk.Checkbutton(frame, text="ON/OFF", variable=self.open_viewer)
@@ -159,12 +162,15 @@ class GUIMain:
             self.label_suffix.grid(row=2, column=0, pady=10)
             self.entry_suffix.grid(row=2, column=1)
             self.label_model.grid(row=3, column=0, pady=10)
-            self.combo_models.grid(row =3, column =1)
+            if not self.models:
+                self.label_model_not_found.grid(row=3,column=1)
+            else :
+                self.combo_models.grid(row =3, column =1)
+                self.label_channel.grid(row=3,column=2)
             self.label_open_viewer.grid(row=4, column=0, pady=10)
             self.viewer_button.grid(row=4,column=1)
             self.label_keep_MNI.grid(row=5,column=0)
             self.keep_MNI_button.grid(row=5,column=1)
-            self.label_channel.grid(row=3,column=2)
             self.option_menu.entryconfig("Save brain-extracted image",state="normal")
             self.option_menu.entryconfig("Save probability map",state="normal")
             self.option_menu.entryconfig("Threshold",state="normal")
@@ -176,10 +182,13 @@ class GUIMain:
             self.label_suffix.grid_remove()
             self.entry_suffix.grid_remove()
             self.label_model.grid_remove()
-            self.combo_models.grid_remove()
             self.label_open_viewer.grid_remove()
             self.viewer_button.grid_remove()
-            self.label_channel.grid_remove()
+            if not self.models:
+                self.label_model_not_found.grid_remove()
+            else :
+                self.label_channel.grid_remove()
+                self.combo_models.grid_remove()
             self.label_keep_MNI.grid_remove()
             self.keep_MNI_button.grid_remove()
             self.save_bet.set(False)
