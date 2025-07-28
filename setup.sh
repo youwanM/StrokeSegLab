@@ -2,6 +2,7 @@
 
 git clone git@github.com:ykerverdo/app_seg.git
 cd app_seg
+git update-index --assume-unchanged ./config/config.ini
 
 mkdir atlas
 cd atlas

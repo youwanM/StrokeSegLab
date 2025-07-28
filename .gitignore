@@ -15,4 +15,3 @@ venv
 venvonnx
 dcm2niix
 *.nrrd
-*.ini
