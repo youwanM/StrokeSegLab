@@ -38,4 +38,4 @@ fi
 python3 -m venv venv 
 source venv/bin/activate
 pip install --upgrade pip
-pip install onnxruntime[cudnn] nibabel scipy batchgenerators
+pip install onnxruntime-gpu[cudnn] nibabel scipy batchgenerators

@@ -1,5 +1,6 @@
 import logging
 import os
+from gui.gui import GUIMain
 import onnxruntime as ort
 from utils.config_manager import Config
 from utils.models_manager import update_models
@@ -11,9 +12,18 @@ import time
 from utils.path import MODEL_DIR
 
 class Inference:
-    def __init__(self,gui=None):
-        
-        
+    """
+    This class performs inference on 3D images using an ONNX model
+    """
+    def __init__(self,gui : GUIMain =None)->None:
+        """
+        Initialize the inference:
+        - Setup de Config and Option class
+        - Call for update_models to update the models list
+        - Preload CUDA DLLs to avoid runtime errors when using the CUDAExecutionProvider
+        Args:
+            gui (GUIMain, optional): _description_. Defaults to None.
+        """
         self.logger=logging.getLogger()
         option = Option()
         self.device = option.get("device")
@@ -22,7 +32,6 @@ class Inference:
             ort.preload_dlls(directory='')
         self.gui = gui
 
-        # Initialize ONNX Runtime session
         self.config = Config()
         self.model_path = option.get("model_path")
         if self.model_path is None:
@@ -31,7 +40,17 @@ class Inference:
         self.patch_size = [128,128,128]
 
     
-    def _compute_steps(self,image_size, patch_size, step_size =0.5):
+    def _compute_steps(self,image_size : tuple[int,int,int], patch_size : list[int], step_size : float =0.5)->list[list[int]]:
+        """
+        Compute the coordinates of starting positions for the inference
+        Args:
+            image_size (tuple[int,int,int]): Size of the image
+            patch_size (list[int]): Size of the patch to extract
+            step_size (float, optional): Controls the overlap between consecutive patches. Defaults to 0.5
+
+        Returns:
+            list[list[int]]: A list of three lists, each containing the start positions for the sliding window in the x, y, and z dimensions
+        """
         assert [i >= j for i, j in zip(image_size, patch_size)], "image size must be as large or larger than patch_size"
         assert 0 < step_size <= 1, 'step_size must be larger than 0 and smaller or equal to 1'
 

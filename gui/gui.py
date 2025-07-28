@@ -22,7 +22,7 @@ class GUIMain:
     Graphical interface of the brain segmentation application
     This class initialize the Tkinter window, manage user inputs, run preprocessing, inference, postprocessing and updates the GUI
     """
-    def __init__(self):
+    def __init__(self)->None:
         """
         Initialize the graphical interface with all the Tkinter widgets and run the main Tkinter loop (mainloop)
         """
@@ -31,8 +31,8 @@ class GUIMain:
         self.logger.warning("="*60)
         self.logger.warning("This tool is for research purpose only ! ")
         self.logger.warning("="*60)
-        self.option = Option()
-        self.config = Config()
+        self.option = Option() # A singleton used to store runtime option
+        self.config = Config() # A singleton used to store configuration preferences and file paths using a .ini file
         self.option.set("device",self._check_device())
         self.preprocessor = Preprocessor(gui=self)
         self.postprocessor = Postprocessor(gui=self)
@@ -41,7 +41,7 @@ class GUIMain:
         self.nii_paths = {}
 
         self.window = tk.Tk()
-        self.window.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.window.protocol("WM_DELETE_WINDOW", self._on_close) # Call self._on_close when the user tries to close de window
         self.window.title(APP_NAME)
         self.input_path = tk.StringVar(value="")
         self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
@@ -91,7 +91,7 @@ class GUIMain:
 
         self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
         self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
-        self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
+        self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change) # Call self._on_model_change when a model is selected
         default_model = self.config.get("default","model")
         if default_model != "":
             self.combo_models.current(self.models.index(default_model))
@@ -117,7 +117,7 @@ class GUIMain:
         self.combo_modes = ttk.Combobox(frame,values=execution_modes,state="readonly")
         self.combo_modes.current(0)
         self.combo_modes.grid(row=6, column=1)
-        self.combo_modes.bind("<<ComboboxSelected>>", self._on_mode_change)
+        self.combo_modes.bind("<<ComboboxSelected>>", self._on_mode_change) # Call self._on_mode_change when mode is selected
         self._on_mode_change()
 
         self.label_working_on = tk.Label(frame, textvariable=self.working_on_text, fg="blue")
@@ -129,9 +129,13 @@ class GUIMain:
 
 
         messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
-        self.window.mainloop()
+        self.window.mainloop() # Starts the tkinter main loop in the main thread
 
-    def _on_keep_MNI_toggle(self):
+    def _on_keep_MNI_toggle(self)->None:
+        """
+        Handle the toggle of the keep_MNI option
+        If keep_MNI is True, disable the save brain exctracted image option, else, enable it
+        """
         state = self.keep_MNI.get()
         if state:
             self.save_bet.set(False)
@@ -139,16 +143,23 @@ class GUIMain:
         else:
             self.option_menu.entryconfig("Save brain-extracted image",state="normal")
             
-    def _check_path_filled(self):
+    def _check_path_filled(self)->None:
         """
-        Checks if the input and 
+        Enable the run button only if the input path is set and there is model available
         """
         if self.input_path.get() and self.combo_models.get() != "":
             self.run_button.config(state='normal')
         else:
             self.run_button.config(state='disabled') 
 
-    def _on_model_change(self,event=None):
+    def _on_model_change(self,event : tk.Event =None)->None:
+        """
+        Update the app based on the selected model
+        - Disbale the run button if there isn't a model available
+        - Display an appropriate message based on the model
+        Args:
+            event (tk.Event, optional): The event triggered by the model selection. Defaults to None
+        """
         model = self.combo_models.get()
         if model == "":
             self.channel_text.set("No model found")
@@ -164,7 +175,14 @@ class GUIMain:
             if self.input_path.get():
                 self.run_button.config(state='normal')
 
-    def _on_mode_change(self,event=None):
+    def _on_mode_change(self,event: tk.Event=None)->None:
+        """
+        Update the app based on the selected mode:
+        - Brain extraction only : all the fields are deleted execpt input path, some option are disable
+        - Prediction : all the fields are displayed
+        Args:
+            event (tk.Event, optional): The event triggered by the mode selection. Defaults to None.
+        """
         mode = self.combo_modes.get()
         if mode == "Prediction":
             self.label_suffix.grid(row=2, column=0, pady=10)
@@ -203,13 +221,21 @@ class GUIMain:
             else : 
                 self.combo_viewers.grid_remove()
             
-    def _show_threshold(self):
+    def _show_threshold(self)->None:
+        """
+        Display the threshold window with a cursor linked to the threshold of the segmentation
+        """
         threshold_window= tk.Toplevel(self.window)
         threshold = tk.Scale(threshold_window,orient=tk.HORIZONTAL,from_=0, to=1, resolution=0.01, label="Threshold", variable=self.threshold_var)
         threshold.pack()
         ok_button = tk.Button(threshold_window, text="OK", command=threshold_window.destroy)
         ok_button.pack(pady=10)
-    def _show_about(self):
+
+    def _show_about(self)->None:
+        """
+        Display the about window
+        A notebook is used to display 3 frame in different tabs : developpers, license and publications
+        """
         size = 500
         about_window= tk.Toplevel(self.window)
         tk.Label(about_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
@@ -235,7 +261,10 @@ class GUIMain:
             tk.Label(publications_frame, text=title, font=("Arial", 12, "bold"), justify='left', wraplength=size).pack(anchor='w', pady=(5, 0))
             tk.Label(publications_frame, text=citation, justify='left', wraplength=size).pack(anchor='w', pady=(0, 5))
 
-    def _show_help(self):
+    def _show_help(self)->None:
+        """
+        Display the help window
+        """
         size =500
         help_window= tk.Toplevel(self.window)
         tk.Label(help_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
@@ -243,9 +272,13 @@ class GUIMain:
         help_window.logo = tk.PhotoImage(file=LOGO)
         tk.Label(help_window, text = HELP, justify='left',wraplength=size ).pack(anchor='w')
         tk.Button(help_window, text="Close", command=help_window.destroy).pack(anchor='e',padx=10,pady=[0,10])
-    def _show_import_model(self):
+
+    def _show_import_model(self)->None:
+        """
+        Display the import model window with 3 button to select and import the model and close the window
+        """
         import_model_window= tk.Toplevel(self.window)
-        import_model_window.transient(self.window)
+        import_model_window.transient(self.window) # Make the import window stay on top of the main window and minimize with it
         import_model_window.title("Import Model")
         self.model_to_import = tk.StringVar(value="")
         self.status_import_text = tk.StringVar(value="")
@@ -259,13 +292,24 @@ class GUIMain:
         tk.Button(button_frame, text='Import', command=self._import_model).pack(side='left', padx=5)
         tk.Button(button_frame, text='Close', command=import_model_window.destroy).pack(side='left', padx=5)
 
-    def _select_model(self):
+    def _select_model(self)->None:
+        """
+        Open a filedialog to select a model file.
+        If a file is selected, store the path and clear the import status message
+        """
         filename = filedialog.askopenfilename(title='Select model file')
         if filename:
             self.model_to_import.set(filename)
             self.status_import_text.set("")
     
-    def _import_model(self):
+    def _import_model(self)->None:
+        """
+        Try to import a model, update the model list and the status message : 
+        - Call update_model to refresh the list of model available
+        - Call add_model to add the model to the models directory
+        - Update the list used by the combobox
+        - Handle the potential error and display a status message
+        """
         try:
             update_models()
             model_name = add_model(self.model_to_import.get())
@@ -287,34 +331,60 @@ class GUIMain:
             self.status_import_text.set(s)
             self.label_import_model.config(fg="red")
 
-    def _select_input_folder(self):
+    def _select_input_folder(self)->None:
+        """
+        Handle the input folder selection
+        Open a filedialog, set the input path and call for _check_path_filled
+        """
         self.input_path.set(filedialog.askdirectory(title='input path'))
         self._check_path_filled()
 
-    def _select_input_file(self):
+    def _select_input_file(self)->None:
+        """
+        Handle the input file selection
+        Open a filedialog, set the input path and call for _check_path_filled
+        """
         self.input_path.set(filedialog.askopenfilename(title='input path'))
         self._check_path_filled()
 
-    def _on_close(self):
+    def _on_close(self)->None:
+        """
+        Check if a prediction is running, and destroy the window if not
+        """
         if self.running:
             messagebox.showwarning("Please wait", "Prediction is running. Please stop it before closing.")  
         else:
             self.window.destroy()
     
-    def _stop(self):
+    def _stop(self)->None:
+        """
+        Method used to stop a prediction (or BET)
+        - Since the prediction (or BET) runs in a separate thread and can take a long time, this method does not stop the process immediately. Instead, it sets a variable (`self.stop_requested`) that is checked periodically during the processing loop. When detected, the process will terminate.
+        - Update the UI to inform the user
+        """
         self.stop_requested = True
         self.result_text.set("🛑 Stopping...")
         self.label_result.config(fg="red")
         self.stop_button.config(state="disabled")
         self.window.update()
     
-    def check_stop(self):
+    def check_stop(self) -> bool:
+        """
+        The method used during the process to check if a stop is requested by the user
+
+        Returns:
+            bool: True if a stop was requested, otherwise False
+        """
         if self.stop_requested:
             self.logger.info("Prediction stopped by user.")
             self.success = False
             return True
         
-    def _run(self):
+    def _run(self)->None:
+        """
+        The entry point of the processing
+        Update the UI, set various variables used during the processing task, and call either _run_prediction or _run_bet depending on the selected mode.
+        """
         self.run_button.config(state="disabled")
         self.running = True
         mode = self.combo_modes.get()
@@ -333,7 +403,14 @@ class GUIMain:
         else :
             self._run_bet()
     
-    def _run_prediction(self):
+    def _run_prediction(self)->None:
+        """
+        Configure the prediction settings and launch it in a separate thread in order to not freeze the UI :
+        - Retrieves and configures runtime option
+        - Call find_nii_files to construct a dictionary of NIFTI path and check T1/FLAIR consistency
+        - Display warning message if needed and other informations to the users
+        - Start the prediction in a thread
+        """
         model_name = self.combo_models.get()
         if model_name != self.config.get("default","model"):
             self.config.set("default","model",model_name)
@@ -384,12 +461,24 @@ class GUIMain:
             self.config.save()
         self.result_text.set("⌛ Prediction running...")
         self.label_result.config(fg="blue")
-        t = threading.Thread(target=self._predict)
-        t.start()
+        t = threading.Thread(target=self._predict) 
+        t.start() # Start a thread that calls for self._predict
 
 
 
-    def _predict(self):
+    def _predict(self)->None:
+        """
+        Run the prediction pipeline for all subjects.
+
+        Depending on the model:
+        - 2 channels (FLAIR and T1), 't1' is the T1 image and 'flair' is the FLAIR image.
+        - 1 channel, 't1' contains either the T1 or the FLAIR image, and 'flair' is None.
+
+        It creates a temporary directory and then, for each subject : 
+        - Run preprocessing, inference and postprocessing
+        - Checks periodically if a stop is requested
+        - Update the UI during the process using self.window.after because Tkinter isn't thread safe, we can't modify the UI from a secondary thread. So 'after' is scheduling an update in the main thread
+        """
         threshold = self.threshold_var.get()
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
@@ -404,7 +493,7 @@ class GUIMain:
                 else :
                     s=f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})"
                     self.logger.info(f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})")
-                self.window.after(0,self._update_stringvar,self.working_on_text,s)
+                self.window.after(0,self._update_stringvar,self.working_on_text,s) # We schedule a method that will be executed in the main thread
                 data, affine, bbox,original_shape, trsf_path, old_spacing, padding, bet, MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
@@ -416,23 +505,34 @@ class GUIMain:
                 else : 
                     self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold)
                 i+=1
-            except Exception as e:
+            except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
-        self.window.after(0,self._update_result)
+        self.window.after(0,self._update_result) # Call for update_result in the main thread
         self.preprocessor.clean(temp_dir)
 
-    def _run_bet(self):
+    def _run_bet(self)->None:
+        """
+        Configure the BET settings and launch it in a separate thread in order to not freeze the UI
+        """
         self.option.set("input_path",self.input_path.get())
         
         self.nii_paths,*_ = self.preprocessor.find_nii_files()
 
         self.result_text.set("⌛ Brain extraction running...")
         self.label_result.config(fg="blue")
-        t = threading.Thread(target=self._bet)
-        t.start()
+        t = threading.Thread(target=self._bet) 
+        t.start() # Start a thread that calls for self._bet
 
-    def _bet(self):
+    def _bet(self)->None:
+        """
+        Run the BET pipeline for all subjects.
+        
+        It creates a temporary directory and then, for each subject : 
+        - Run preprocessing
+        - Checks periodically if a stop is requested
+        - Update the UI during the process using self.window.after because Tkinter isn't thread safe, we can't modify the UI from a secondary thread. So 'after' is scheduling an update in the main thread
+        """
         len_nii_paths= len(self.nii_paths)
         temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
@@ -442,18 +542,21 @@ class GUIMain:
                     raise InterruptedError("Action was cancelled by the user.")
                 s = f"Working on: {os.path.basename(t1)} ({i+1}/{len_nii_paths})"
                 self.logger.info(f"Starting processing on: {t1}")
-                self.window.after(0,self._update_stringvar,self.working_on_text,s)
+                self.window.after(0,self._update_stringvar,self.working_on_text,s) # Call for _update_stringvar in the main thread
                 self.preprocessor.run(t1,flair,temp_dir,True)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 i+=1
-            except Exception as e:
+            except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
-        self.window.after(0,self._update_result)
+        self.window.after(0,self._update_result) # Call for update_result in the main thread
         self.preprocessor.clean(temp_dir)
 
-    def _update_result(self):
+    def _update_result(self)->None:
+        """
+        Update the UI based on the result of the processing
+        """
         self.label_working_on.grid_remove()
         self.label_status.grid_remove()
         self.stop_button.grid_remove()
@@ -475,14 +578,23 @@ class GUIMain:
                 self.result_text.set("✗ Failed")
                 self.label_result.config(fg="red")
 
-    def update_status(self,s):
-        self.window.after(0,self._update_stringvar,self.status_text,s)
-
-    def _update_stringvar(self,stringvar,s):
+    def _update_stringvar(self,stringvar : tk.StringVar,s: str)->None:
+        """
+        Update the value of a StringVar with the given string
+        Args:
+            stringvar (tk.StringVar): The StringVar to update
+            s (str): The new string value to set
+        """
         stringvar.set(s)
 
 
-    def _check_device(self):
+    def _check_device(self)->str:
+        """
+        Check Cuda if available
+
+        Returns:
+            str: The selected execution provider ('CUDAExecutionProvider' or 'CPUExecutionProvider')
+        """
         available_providers = ort.get_available_providers()
         if 'CUDAExecutionProvider' in available_providers:
             device = 'CUDAExecutionProvider'
