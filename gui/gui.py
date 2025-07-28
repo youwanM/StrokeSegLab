@@ -74,6 +74,8 @@ class GUIMain:
         
         frame = tk.Frame(self.window)
         frame.grid()
+        self.run_button = tk.Button(frame, text='run', command=self._run, state="disabled")
+        self.run_button.grid(row=6,column=2)
         tk.Label(frame, text="Input path : ").grid(row=0,column=0,pady=10)
         self.entry_input_path = tk.Entry(frame, textvariable=self.input_path, state='readonly', width=50)
         self.entry_input_path.grid(row=0, column=1)
@@ -85,15 +87,15 @@ class GUIMain:
 
         self.label_model = tk.Label(frame, text="Model : ")
         self.models = self.config.get("default","models").split(',')
-        self.models = [m for m in self.models]
-        if not self.models:
-            self.label_model_not_found = tk.Label(frame, text="No model found",fg="red")
-        else :
-            self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
-            self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
-            self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
-            self.combo_models.current(self.models.index(self.config.get("default","model")))
-            self._on_model_change()
+        self.models = [m for m in self.models if m !=""]
+
+        self.label_channel = tk.Label(frame,textvariable=self.channel_text,fg="blue")
+        self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
+        self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change)
+        default_model = self.config.get("default","model")
+        if default_model != "":
+            self.combo_models.current(self.models.index(default_model))
+        self._on_model_change()
 
         self.label_open_viewer = tk.Label(frame, text="Open viewer : ")
         self.viewer_button = tk.Checkbutton(frame, text="ON/OFF", variable=self.open_viewer)
@@ -116,8 +118,6 @@ class GUIMain:
         self.combo_modes.current(0)
         self.combo_modes.grid(row=6, column=1)
         self.combo_modes.bind("<<ComboboxSelected>>", self._on_mode_change)
-        self.run_button = tk.Button(frame, text='run', command=self._run, state="disabled")
-        self.run_button.grid(row=6,column=2)
         self._on_mode_change()
 
         self.label_working_on = tk.Label(frame, textvariable=self.working_on_text, fg="blue")
@@ -143,18 +143,26 @@ class GUIMain:
         """
         Checks if the input and 
         """
-        if self.input_path.get():
+        if self.input_path.get() and self.combo_models.get() != "":
             self.run_button.config(state='normal')
         else:
             self.run_button.config(state='disabled') 
 
     def _on_model_change(self,event=None):
         model = self.combo_models.get()
-        channels = self.config.get("ModelChannels",model)
-        if channels == "2":
-            self.channel_text.set("Using FLAIR and T1")
+        if model == "":
+            self.channel_text.set("No model found")
+            self.label_channel.config(fg="red")
+            self.run_button.config(state='disabled') 
         else:
-            self.channel_text.set("Using T1")
+            self.label_channel.config(fg="blue")
+            channels = self.config.get("ModelChannels",model)
+            if channels == "2":
+                self.channel_text.set("Using FLAIR and T1")
+            else:
+                self.channel_text.set("Using T1")
+            if self.input_path.get():
+                self.run_button.config(state='normal')
 
     def _on_mode_change(self,event=None):
         mode = self.combo_modes.get()
@@ -162,11 +170,8 @@ class GUIMain:
             self.label_suffix.grid(row=2, column=0, pady=10)
             self.entry_suffix.grid(row=2, column=1)
             self.label_model.grid(row=3, column=0, pady=10)
-            if not self.models:
-                self.label_model_not_found.grid(row=3,column=1)
-            else :
-                self.combo_models.grid(row =3, column =1)
-                self.label_channel.grid(row=3,column=2)
+            self.combo_models.grid(row =3, column =1)
+            self.label_channel.grid(row=3,column=2)
             self.label_open_viewer.grid(row=4, column=0, pady=10)
             self.viewer_button.grid(row=4,column=1)
             self.label_keep_MNI.grid(row=5,column=0)
@@ -184,11 +189,8 @@ class GUIMain:
             self.label_model.grid_remove()
             self.label_open_viewer.grid_remove()
             self.viewer_button.grid_remove()
-            if not self.models:
-                self.label_model_not_found.grid_remove()
-            else :
-                self.label_channel.grid_remove()
-                self.combo_models.grid_remove()
+            self.label_channel.grid_remove()
+            self.combo_models.grid_remove()
             self.label_keep_MNI.grid_remove()
             self.keep_MNI_button.grid_remove()
             self.save_bet.set(False)
