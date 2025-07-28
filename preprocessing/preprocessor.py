@@ -25,9 +25,9 @@ class Preprocessor:
         self.config = Config()
         self.resampler = Resampler()
         self.wrapper = AnimaWrapper()
-        self.atlas_path = os.path.join(ATLAS_DIR,"atlas.nrrd")
+        self.atlasImage = os.path.join(ATLAS_DIR,"Reference_T1.nrrd")
         self.gui = gui
-        self.brain_extracter = BrainExtracter(self.wrapper,gui)
+        self.brain_extracter = BrainExtracter(self.wrapper,self.atlasImage,gui)
     
     def _load_img(self,img_path):
         img = nibabel.load(img_path)
@@ -213,7 +213,7 @@ class Preprocessor:
             
             action_name="register to MNI"
             self._print_action(action_name)
-            MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlas_path,MNI)
+            MNI_output,trsf_path,time=self._register_to_reference(RAS_output,self.atlasImage,MNI)
             self._print_duration(action_name,time)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")

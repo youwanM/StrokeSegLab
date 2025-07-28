@@ -6,6 +6,7 @@ from utils.path import MODEL_DIR
 
 
 def update_models():
+    os.makedirs(MODEL_DIR, exist_ok=True)
     config = Config()
     models = []
     for _, _, files in os.walk(MODEL_DIR):
@@ -14,7 +15,9 @@ def update_models():
                 models.append(f[:-5])
     models_string = ",".join(models)
     if models_string != config.get("default","models"):
-        if config.get("default","model") not in models:
+        if not models:
+            config.set("default", "model", "")
+        elif config.get("default","model") not in models:
             config.set("default","model",models[0])
         config.set("default","models",models_string)
         config.clear("ModelChannels")

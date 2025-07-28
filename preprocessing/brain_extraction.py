@@ -3,11 +3,10 @@ from utils.path import ATLAS_DIR
 import os
 class BrainExtracter:
 
-    def __init__(self,wrapper,gui=None):
+    def __init__(self,wrapper,atlasImage,gui=None):
         self.wrapper = wrapper
-        self.atlasImage = os.path.join(ATLAS_DIR,"Reference_T1.nrrd")
+        self.atlasImage = atlasImage
         self.iccImage = os.path.join(ATLAS_DIR,"BrainMask.nrrd")
-        self.atlas_brain = os.path.join(ATLAS_DIR, "atlas_brain.nrrd")
         self.pyramid_option = ["-p", "4", "-l", "1"]
         self.gui = gui
         
