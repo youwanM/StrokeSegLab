@@ -1,9 +1,22 @@
 import time
+from gui.gui import GUIMain
+from preprocessing.wrapper import AnimaWrapper
 from utils.path import ATLAS_DIR
 import os
 class BrainExtracter:
+    """
+    This class handle the brain extraction during the preprocessing
+    """
 
-    def __init__(self,wrapper,atlasImage,gui=None):
+    def __init__(self,wrapper : AnimaWrapper ,atlasImage : str, gui : GUIMain=None)->None:
+        """
+        Initialize the brain extracter class
+
+        Args:
+            wrapper (AnimaWrapper): a wrapper to simplify the use of anima executables
+            atlasImage (str): _description_
+            gui (GUIMain, optional): _description_. Defaults to None.
+        """
         self.wrapper = wrapper
         self.atlasImage = atlasImage
         self.iccImage = os.path.join(ATLAS_DIR,"BrainMask.nrrd")
@@ -11,8 +24,17 @@ class BrainExtracter:
         self.gui = gui
         
 
-    def run(self,img_path,prefix):
-        start = time.time()
+    def run(self,img_path : str,prefix : str)-> str:
+        """
+        Performs the brain extraction on 3D image. Composed by a sequence of anima commands. Store all intermediate results in the temporary directory
+
+        Args:
+            img_path (str): Input path
+            prefix (str): Composed of the temporary folder path and the input file’s base name without its extension
+
+        Returns:
+            str: The output, the brain extracted image
+        """
         brainMask = prefix + "_brainMask.nii.gz"
         maskedBrain = prefix + "_BET.nii.gz"
 
@@ -86,7 +108,5 @@ class BrainExtracter:
         command = ["animaConvertImage", "-i", prefix + "_brainMask.nrrd", "-o", brainMask]
         self.wrapper.run(command)
         
-        end = time.time()
-        elapsed = end - start
 
-        return maskedBrain, elapsed
+        return maskedBrain

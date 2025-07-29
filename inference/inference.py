@@ -74,8 +74,19 @@ class Inference:
             steps.append(steps_here)
 
         return steps
-    
-    def _compute_gaussian(self, patch_size, dtype=np.float32, sigma_scale=1./8, value_scaling_factor=10):
+     
+    def _compute_gaussian(self, patch_size : list[int], dtype=np.float32, sigma_scale : float=1./8, value_scaling_factor:float=10.0)->np.ndarray:
+        """
+        Compute a centered Gaussian importance map for a patch size
+        Args:
+            patch_size (list[int]): Dimensions of the patch
+            dtype (_type_, optional): Data type of the resulting map. Defaults to np.float32
+            sigma_scale (float, optional): Scale factor for the standard deviation of the Gaussian. Defaults to 1./8
+            value_scaling_factor (float, optional): Value used to normalize the max of the map. Defaults to 10.0
+
+        Returns:
+            np.ndarray: Gaussian importance map
+        """
         tmp = np.zeros(patch_size)
         center_coords = [i // 2 for i in patch_size]
         sigmas = [i * sigma_scale for i in patch_size]
@@ -90,7 +101,15 @@ class Inference:
         gaussian_importance_map[mask] = np.min(gaussian_importance_map[~mask])
         return gaussian_importance_map
 
-    def run(self,data):
+    def run(self,data:np.ndarray)->np.ndarray:
+        """
+        Run the inference on a 4D input using a ONNX model
+        Args:
+            data (np.ndarray): Input 4D volume. Shape : (1, x, y, z) for one channel model and (2, x, y, z) for T1/FLAIR model
+
+        Returns:
+            np.ndarray: Output prediction volume. Shape : (b, c, x, y, z), b : batch size, c : output class (2 = background and lesion)
+        """
         assert data.ndim == 4, f"Expected 4D input (c, x, y, z), got {data.shape}"
         _, x, y, z = data.shape
         if self.model_path is None : 
