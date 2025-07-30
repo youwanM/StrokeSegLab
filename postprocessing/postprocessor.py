@@ -1,6 +1,5 @@
 import logging
 import shutil
-from gui.gui import GUIMain
 import nibabel
 import os
 import numpy as np
@@ -17,7 +16,7 @@ class Postprocessor:
     """
     This class performs postprocessing on 3D images
     """
-    def __init__(self,gui : GUIMain=None)-> None:
+    def __init__(self,gui=None)-> None:
         """
         Initialize the main postprocessing class with optional GUI integration.
 
@@ -71,7 +70,6 @@ class Postprocessor:
         Returns:
             tuple[np.ndarray,np.ndarray]: seg : binary mask, pmap : probability map if requested
         """
-        self.logger.debug(f"threshold : {threshold}")
         data = data[0]
         # data = data[1]
         # data = expit(data)
@@ -229,10 +227,8 @@ class Postprocessor:
                 action_name="register to reference"
                 self._print_action(action_name)
                 self._register_to_reference(nii_file,trsf_path,bet)
-                self.logger.debug(f"open viewer : {open_viewer}")
 
             output_path = move_to_output(nii_file)
-            self.logger.debug(f'{name} : {output_path}')
             if open_viewer and name=="seg":
                 action_name="open viewer"
                 self._print_action(action_name)

@@ -445,7 +445,6 @@ class GUIMain:
         self.nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if self.option.get("flair") and subject != flair:
             if none_list:
-                self.logger.debug(f"none_list : {none_list}")
                 none_string = ", ".join(none_list)
                 m = f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image."
                 self.window.after(0, lambda: messagebox.showwarning("⚠️ Warning", m))
@@ -577,6 +576,9 @@ class GUIMain:
             else :
                 self.result_text.set("✗ Failed")
                 self.label_result.config(fg="red")
+    
+    def update_status(self,s):
+        self.window.after(0,self._update_stringvar,self.status_text,s)
 
     def _update_stringvar(self,stringvar : tk.StringVar,s: str)->None:
         """

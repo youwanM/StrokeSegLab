@@ -1,5 +1,4 @@
 import logging
-from gui.gui import GUIMain
 from utils.config_manager import Config
 from utils.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, MNI, RAWDATA, T1
 from utils.option_manager import Option
@@ -22,7 +21,7 @@ class Preprocessor:
     """
     This class performs preprocessing on 3D images
     """
-    def __init__(self,gui : GUIMain=None)-> None:
+    def __init__(self,gui =None)-> None:
         """
         Initialize the main preprocessing class with optional GUI integration.
 
@@ -164,7 +163,7 @@ class Preprocessor:
         Returns:
             np.ndarray: Binary mask (x, y, z) with True where any channel is non-zero.
         """
-        assert data.ndim in (4), "data must have shape (c, x, y, z)"
+        assert data.ndim ==4, "data must have shape (c, x, y, z)"
         nonzero_mask = data[0] != 0
         for c in range(1, data.shape[0]):
             nonzero_mask |= data[c] != 0
@@ -224,7 +223,7 @@ class Preprocessor:
         padded_data = np.expand_dims(padded_data, axis=0)
         return padded_data, padding
 
-    def run(self,t1 : str, flair : str, temp_dir :str ,bet_only : bool =False) -> tuple[np.darray,np.darray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str, str]:
+    def run(self,t1 : str, flair : str, temp_dir :str ,bet_only : bool =False) -> tuple[np.ndarray,np.ndarray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str, str]:
         """
         Run the brain extraction and handle different case : 1 or 2 channels, BET only or not, MNI input or not, save MNI or not
 
@@ -235,7 +234,7 @@ class Preprocessor:
             bet_only (bool, optional): If True doing brain extraction only. Defaults to False.
 
         Returns:
-            tuple[np.darray,np.darray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str, str]: 
+            tuple[np.ndarray,np.ndarray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str, str]: 
             - data preprocessed 
             - affine matrix 
             - Bounding box coordinates used for cropping
@@ -302,7 +301,7 @@ class Preprocessor:
             return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
 
     
-    def _preprocess_modality(self,modality : str ,is_MNI : bool ,bbox : tuple[slice, slice, slice] = None)-> tuple[np.darray,np.darray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str]:
+    def _preprocess_modality(self,modality : str ,is_MNI : bool ,bbox : tuple[slice, slice, slice] = None)-> tuple[np.ndarray,np.ndarray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str]:
         """
         Run the full preprocessing pipeline except brain extraction : 
         - If the image is not already register to MNI : bias correction, reorient to RAS, register to MNI
@@ -314,7 +313,7 @@ class Preprocessor:
             bbox (tuple[slice, slice, slice], optional): Bounding box coordinates used for cropping. Defaults to None.
 
         Returns:
-            tuple[np.darray,np.darray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str]:
+            tuple[np.ndarray,np.ndarray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str]:
             - data preprocessed 
             - affine matrix 
             - Bounding box coordinates used for cropping
@@ -354,13 +353,12 @@ class Preprocessor:
             MNI_base_image = move_to_output(MNI_output)
         else:
             MNI_base_image = None
-    
         data, spacing, affine, original_shape = self._load_img(MNI_output)
         if bbox is None:
             data, seg, bbox = self._crop_to_nonzero(data)
         else:
             data, seg, bbox = self._crop_to_nonzero(data,bbox=bbox)
-
+        
         action_name="resampling"
         new_spacing = (1.0, 1.0, 1.0)
         self._print_action(action_name)

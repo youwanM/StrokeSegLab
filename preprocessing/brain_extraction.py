@@ -1,5 +1,3 @@
-import time
-from gui.gui import GUIMain
 from preprocessing.wrapper import AnimaWrapper
 from utils.path import ATLAS_DIR
 import os
@@ -8,7 +6,7 @@ class BrainExtracter:
     This class handle the brain extraction during the preprocessing
     """
 
-    def __init__(self,wrapper : AnimaWrapper ,atlasImage : str, gui : GUIMain=None)->None:
+    def __init__(self,wrapper : AnimaWrapper ,atlasImage : str, gui =None)->None:
         """
         Initialize the brain extracter class
 

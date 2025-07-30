@@ -1,6 +1,5 @@
 import logging
 import os
-from gui.gui import GUIMain
 import onnxruntime as ort
 from utils.config_manager import Config
 from utils.models_manager import update_models
@@ -15,7 +14,7 @@ class Inference:
     """
     This class performs inference on 3D images using an ONNX model
     """
-    def __init__(self,gui : GUIMain =None)->None:
+    def __init__(self,gui=None)->None:
         """
         Initialize the inference:
         - Setup de Config and Option class
@@ -115,7 +114,6 @@ class Inference:
         if self.model_path is None : 
             model = self.config.get("default","model")
             self.model_path = os.path.join(MODEL_DIR,f"{model}.onnx")
-        self.logger.debug(f'ONNX model path : {self.model_path}')
         
         # Set up ONNX Runtime providers based on device
         providers = [self.device]
