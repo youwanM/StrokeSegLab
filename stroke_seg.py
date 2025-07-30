@@ -15,7 +15,25 @@ import tempfile
 import sys
 
 class CLIMain:
-    def __init__(self, input_path,only_preprocessing, save_preprocessing,keep_MNI,save_pmap,threshold, model_name,suffix,viewer,import_model):
+    """
+    Command line tool for the segmentation application
+    """
+    def __init__(self, input_path : str,only_preprocessing : bool, save_preprocessing : bool ,keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
+        """
+        Initialize the cli 
+
+        Args:
+            input_path (str): The input path
+            only_preprocessing (bool): If True, the app will do the brain extraction only
+            save_preprocessing (bool): If True, the app will save images brain extracted in the output directory
+            keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
+            save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
+            threshold (float): Set the segmentation threshold to this value (0.5 if None)
+            model_name (str): If it’s a path, this model file will be used for the prediction. If it’s a name, the model with this name located in the models folder will be used
+            suffix (str): The suffix for the output segmentation (save it as default), use default one if None
+            viewer (str): Name of the viewer used to open the first input image and its segmentation
+            import_model (str): If it’s None, initialize the class for prediction. If it's "__SHOW_MODELS__", does nothing. Otherwise, just set the model name to import
+        """
         setup_logger(True)
         self.logger = logging.getLogger()
         print("="*60)
@@ -23,7 +41,7 @@ class CLIMain:
         print("="*60)
         self.option = Option()
         self.config = Config()
-        if import_model is None or import_model == "__SHOW_MODELS__":
+        if import_model is None : 
             self.option.set("input_path",input_path)
             self.only_preprocessing = only_preprocessing
             self.save_preprocessing = save_preprocessing 
@@ -44,7 +62,7 @@ class CLIMain:
                     else : 
                         models = self.config.get('default', 'models').split(',')
                         models = [m for m in models]
-                        if model_name not in models:
+                        if model_name not in models: # Check if the model specified is in the config models list 
                             self.logger.error(f"{model_name} not in {models}")
                             sys.exit(1)
                         else:
@@ -56,10 +74,19 @@ class CLIMain:
                 self.option.set("device",self._check_device())
                 self.inference = Inference()
                 self.postprocessor = Postprocessor()
+
+        elif import_model == "__SHOW_MODELS__":
+            pass
         else:
             self.model_path = import_model
     
-    def _check_device(self):    
+    def _check_device(self) -> str:
+        """
+        Check Cuda if available
+
+        Returns:
+            str: The selected execution provider ('CUDAExecutionProvider' or 'CPUExecutionProvider')
+        """
         available_providers = ort.get_available_providers()
         if 'CUDAExecutionProvider' in available_providers:
             device = 'CUDAExecutionProvider'
@@ -68,7 +95,10 @@ class CLIMain:
         self.logger.info(f'using device : {device}')
         return device
     
-    def import_model(self):
+    def import_model(self) -> None:
+        """
+        Try to import the model file in the models directory
+        """
         try:
             update_models()
             model_name = add_model(self.model_path)
@@ -79,7 +109,10 @@ class CLIMain:
         except Exception as e:
             self.logger.error(f"Unexpected error during model import: {e}")
     
-    def show_models(self):
+    def show_models(self) -> None:
+        """
+        Print all the models available in the models directory
+        """
         update_models()
         models_str = self.config.get("default", "models")
         models = [m.strip() for m in models_str.split(',') if m.strip()]
@@ -92,7 +125,10 @@ class CLIMain:
         for model in models:
             print(f" - {model}")
 
-    def run(self):
+    def run(self)-> None:
+        """
+        Run the prediction or the brain extraction only with all the options specified
+        """
         start = time.time()
         model_name = self.config.get("default","model")
         if self.config.get("ModelChannels",model_name)=="2":
@@ -131,20 +167,29 @@ class CLIMain:
                 if not self.only_preprocessing :
                     data, affine, bbox,original_shape, trsf_path, old_spacing, padding,bet,MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
                     data = self.inference.run(data)
-                    if self.viewer != None and i==0:
+                    if self.viewer != None and i==0: # Only open the viewer for the first image
                         self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold,True)
                     else : 
                         self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold)
-                else : 
+                else : # Preprocessing only
                     self.preprocessor.run(t1,flair,temp_dir,True)
                 i+=1
-            except Exception as e:
+            except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Error while processing {t1} : {e}")
         self.preprocessor.clean(temp_dir)
         final = time.time()-start
         self.logger.info(f"Total prediction time: {final:.2f} seconds")
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the segmentation application
+    - You must specify either --input or --import-model (not both)
+    - If --import-model is used, no other option must be set
+    - If --only-preprocessing is used, no other option must be set
+
+    Returns:
+        argparse.Namespace: _description_
+    """
     parser = argparse.ArgumentParser(description="Run segmentation pipeline", epilog="If no arguments are provided, the graphical interface will be launched by default")
     parser.add_argument("-i", "--input", help="Input image(s) path")
     parser.add_argument("-m", "--model", help="Model name (optional)")
@@ -170,10 +215,11 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
+    if len(sys.argv) == 1: # No command-line arguments provided : launch the graphical interface
         GUIMain()
     else:
         args = parse_args()
+        # Initialize the CLI application with parsed arguments
         app = CLIMain(
             input_path=args.input,
             only_preprocessing=args.only_preprocessing,
@@ -187,9 +233,9 @@ if __name__ == "__main__":
             import_model = args.import_model,
         )
         if args.import_model is None:
-            app.run()
+            app.run() # Prediction or brain extraction mode
         elif args.import_model == "__SHOW_MODELS__":
-            app.show_models()
+            app.show_models() # Show model mode
         else:
-            app.import_model()
+            app.import_model() # Import model mode
                 

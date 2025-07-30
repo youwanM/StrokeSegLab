@@ -359,7 +359,7 @@ class GUIMain:
     def _stop(self)->None:
         """
         Method used to stop a prediction (or BET)
-        - Since the prediction (or BET) runs in a separate thread and can take a long time, this method does not stop the process immediately. Instead, it sets a variable (`self.stop_requested`) that is checked periodically during the processing loop. When detected, the process will terminate.
+        - Since the prediction (or BET) runs in a separate thread and can take a long time, this method does not stop the process immediately. Instead, it sets a variable (self.stop_requested) that is checked periodically during the processing loop. When detected, the process will terminate.
         - Update the UI to inform the user
         """
         self.stop_requested = True
@@ -500,7 +500,7 @@ class GUIMain:
                 data = self.inference.run(data)
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
-                if self.open_viewer.get() and i==0:
+                if self.open_viewer.get() and i==0: # Only open the viewer for the first image
                     self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold,True)
                 else : 
                     self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold)

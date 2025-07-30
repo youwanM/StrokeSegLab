@@ -8,17 +8,31 @@ from scipy.ndimage import map_coordinates
 import pandas as pd
 
 class Resampler:
-    def __init__(self):
+    """
+    This class handle the resampling during the preprocessing and postprocessing
+    """
+    def __init__(self)-> None:
+        """
+        Initialize the resampler class
+        """
         self.separate_z_anisotropy_threshold = 3.0
         self.force_separate_z = None
         self.is_seg=False
         self.order = 1
         self.order_z= 0
 
-        
-    
-    def run(self,data,current_spacing,new_spacing):
-        start = time.time()
+    def run(self,data : np.ndarray,current_spacing : tuple[float,float,float],new_spacing : tuple[float,float,float])->np.ndarray:
+        """
+        Resamples the input data to a new spacing
+
+        Args:
+            data (np.ndarray): Input array of shape (c, x, y, z)
+            current_spacing (tuple[float,float,float]): Current spacing in mm (sx, sy, sz)
+            new_spacing (tuple[float,float,float]): Desired spacing in mm (sx, sy, sz)
+
+        Returns:
+            np.ndarray: The resampled data 
+        """
         do_separate_z, axis = self._determine_do_sep_z_and_axis(current_spacing, new_spacing,)
 
         if data is not None:
@@ -28,9 +42,22 @@ class Resampler:
         new_shape = self._compute_new_shape(shape[1:], current_spacing, new_spacing)
 
         data_reshaped = self._resample_data_or_seg(data, new_shape,  axis, do_separate_z)
-        return data_reshaped, start - time.time()
+        return data_reshaped
     
-    def _determine_do_sep_z_and_axis(self,current_spacing,new_spacing):
+    def _determine_do_sep_z_and_axis(self,current_spacing : tuple[float,float,float], new_spacing : tuple[float,float,float])->tuple[bool,int]:
+        """
+        Decides if resampling should be done separately along the z-axis and finds the right axis
+        The choice is based on the force_separate_z attribute and the spacing values. If force_separate_z is set, it is used first. If not, the method checks if the current or new spacing needs separate resampling in the z direction
+
+        Args:
+            current_spacing (tuple[float,float,float]): Current spacing in mm (sx, sy, sz)
+            new_spacing (tuple[float,float,float]): Desired spacing in mm (sx, sy, sz)
+
+        Returns:
+            tuple[bool,int]:
+            - True if separate resampling along the z-axis should be done
+            - The axis to resample separately, or None if not needed
+        """
         if self.force_separate_z is not None:
             do_separate_z = self.force_separate_z
             if self.force_separate_z:
@@ -61,22 +88,65 @@ class Resampler:
                 axis = axis[0]
         return do_separate_z, axis
     
-    def _get_lowres_axis(self,new_spacing):
+    def _get_lowres_axis(self,new_spacing : tuple[float,float,float])->np.ndarray:
+        """
+        Finds which axis has the biggest spacing (=the lowest resolution)
+
+        Args:
+            new_spacing (tuple[float,float,float]): Spacing in mm (sx, sy, sz)
+
+        Returns:
+            np.ndarray: The indices of the axis with the biggest spacing
+        """
         axis = np.where(max(new_spacing) / np.array(new_spacing) == 1)[0]  # find which axis is anisotropic
         return axis
     
-    def _get_do_separate_z(self,spacing):
+    def _get_do_separate_z(self,spacing : tuple[float,float,float])->bool:
+        """
+         It compares the ratio between the max and min spacing values to a threshold (separate_z_anisotropy_threshold)
+
+        Args:
+            spacing (tuple[float,float,float]): Spacing in mm (sx, sy, sz)
+
+        Returns:
+            bool: True if the ratio is higher than the threshold
+        """
         do_separate_z = (np.max(spacing) / np.min(spacing)) > self.separate_z_anisotropy_threshold
         return do_separate_z
 
     
-    def _compute_new_shape(self,old_shape, old_spacing, new_spacing):
+    def _compute_new_shape(self, old_shape : np.ndarray, old_spacing : tuple[float,float,float], new_spacing : tuple[float,float,float]) -> np.ndarray:
+        """
+        Computes the new shape of data after resampling to a new spacing
+        Scales each dimension according to the ratio of old and new spacing values
+
+        Args:
+            old_shape (np.ndarray): Current shape of the data
+            old_spacing (tuple[float,float,float]): Current spacing in mm (sx, sy, sz) 
+            new_spacing (tuple[float,float,float]): Desired spacing in mm (sx, sy, sz)
+
+        Returns:
+            np.ndarray: Future shape of the resempled data
+        """
         assert len(old_spacing) == len(old_shape)
         assert len(old_shape) == len(new_spacing)
         new_shape = np.array([int(round(i / j * k)) for i, j, k in zip(old_spacing, new_spacing, old_shape)])
         return new_shape
     
-    def _resample_data_or_seg(self, data, new_shape, axis,do_separate_z, dtype_out = None):
+    def _resample_data_or_seg(self, data : np.ndarray, new_shape : np.ndarray, axis : int,do_separate_z : bool, dtype_out : np.dtype = None)->np.ndarray:
+        """
+        Resample image or segmentation data to a new shape, optionally resampling separately along an anisotropic axis
+
+        Args:
+            data (np.ndarray): Input array of shape (c, x, y, z)
+            new_shape (np.ndarray): Future shape of the resempled data
+            axis (int): The axis to resample separately, or None if not needed
+            do_separate_z (bool): True if separate resampling along the z-axis should be done
+            dtype_out (np.dtype, optional): Output data type. Defaults to None.
+
+        Returns:
+            np.ndarray: Output data array of shape (c, x, y, z)
+        """
         assert data.ndim == 4, "data must be (c, x, y, z)"
         assert len(new_shape) == data.ndim - 1
 

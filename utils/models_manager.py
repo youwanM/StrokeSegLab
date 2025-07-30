@@ -5,7 +5,10 @@ from utils.config_manager import Config
 from utils.path import MODEL_DIR
 
 
-def update_models():
+def update_models() -> None:
+    """
+    Look for ONNX models in the model directory and update the config.ini file :
+    """
     os.makedirs(MODEL_DIR, exist_ok=True)
     config = Config()
     models = []
@@ -16,12 +19,12 @@ def update_models():
     models_string = ",".join(models)
     if models_string != config.get("default","models"):
         if not models:
-            config.set("default", "model", "")
+            config.set("default", "model", "") 
         elif config.get("default","model") not in models:
-            config.set("default","model",models[0])
-        config.set("default","models",models_string)
-        config.clear("ModelChannels")
-        for model in models:
+            config.set("default","model",models[0]) # If the default model isn't in the models directory, update the config file
+        config.set("default","models",models_string) # If the list of models in the models directory is different from the one in the config file, update the config list
+        config.clear("ModelChannels") 
+        for model in models: # Save the number of input channels for each model in the directory
             model_path = os.path.join(MODEL_DIR, model+".onnx")
             session = ort.InferenceSession(model_path)
             input_tensor = session.get_inputs()[0]
@@ -29,7 +32,17 @@ def update_models():
             config.set("ModelChannels",model,str(channels))
         config.save()
 
-def add_model(model_path):
+def add_model(model_path : str)->str:
+    """
+    Copy a model file in the models directory
+    Raises errors if the model already exist or if the file isn't a .onnx
+
+    Args:
+        model_path (str): Path of the model to import
+
+    Returns:
+        str: Basename of the model without the extension
+    """
     config = Config()
     models_str = config.get("default","models")
     models = [m.strip() for m in models_str.split(',')]
