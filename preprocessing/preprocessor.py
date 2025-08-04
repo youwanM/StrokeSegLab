@@ -448,7 +448,7 @@ class Preprocessor:
                     elif FLAIR in name:
                         subject_id = rm_entity(name,FLAIR)
                         subject.setdefault(subject_id,{})['FLAIR']=f
-                else : # if not in 2 channels mode, we just fill the final dict
+                elif T1 in name : # if not in 2 channels mode and if the file is a T1, we just fill the final dict
                     nii_paths[f]=None
                     subject_number+=1
             if self.option.get("flair"):
