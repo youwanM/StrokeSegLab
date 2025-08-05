@@ -1,30 +1,54 @@
-from datetime import datetime
 import logging
 import os
+from datetime import datetime
 
-
-def setup_logger(cli :bool = True)->None:
+def setup_logger(cli: bool = True, verbose : bool = False) -> None:
     """
-    Configure the global logger for the application :
-    - If cli is True : configure a StreamHandler for logging into the console
-    - If cli is False : Create a logs directory if it doesn’t already exist, then create a new log file inside it. Keeps only the 5 most recent files. Configure a FileHandler for logginh into the log file created
-    - Mesage format : timestamp - level - message
+    Configure the global logger for the application:
+    - If cli is True: configure a StreamHandler for logging into the console
+    - If cli is False: create a logs directory (if it doesn't already exist),
+      create a new log file inside it, and log both to file and console.
+      Keeps only the 5 most recent files.
+    - Message format: timestamp - level - message
+
     Args:
         cli (bool, optional): cli (True) or gui (False) mode. Defaults to True
+        verbose (bool, optional): If True, sets the logging level to DEBUG. If False, sets it to INFO. Defaults to False.
     """
-    logger=logging.getLogger() # Get the root logger instance (singleton)
-    logger.setLevel(logging.DEBUG) # Set the logging level to DEBUG, which means the logger will capture all messages with level DEBUG and higher (all the message)
+    logger = logging.getLogger()
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    else : 
+        logger.setLevel(logging.INFO)
+
+    # Remove all existing handlers to avoid duplicate logs
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
     if cli:
-        handler = logging.StreamHandler()
+        # Console only
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
     else:
-        os.makedirs("logs",exist_ok=True)
-        log_files = os.listdir("logs")
+        # Create logs directory and manage files
+        os.makedirs("logs", exist_ok=True)
+        log_files = sorted(os.listdir("logs"))
         if len(log_files) >= 5:
-            log_files.sort() 
             os.remove(os.path.join("logs", log_files[0]))
-        log_file=os.path.join("logs",f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log") # Example filename: 'logs/20250729_153045.log'Ω
-        handler = logging.FileHandler(log_file)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+        
+        log_file = os.path.join("logs", f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        
+        # File handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+        # Console handler (added even in GUI mode)
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+        
+    logger.debug("Verbose mode enabled: logging level set to DEBUG.")

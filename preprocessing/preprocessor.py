@@ -261,8 +261,7 @@ class Preprocessor:
                 data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,True)
             else:
                 data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image = self._preprocess_modality(bet_t1,False)
-                if self.option.get("save_bet"):
-                    move_to_output(bet_t1) # Save the brain extracted image
+                move_to_output(bet_t1) # Save the brain extracted image
         else:
             move_to_output(bet_t1) # if it's brain extraction only, just need to call move_to_output with the bet image
 
@@ -289,8 +288,7 @@ class Preprocessor:
                         data_flair, *_ = self._preprocess_modality(bet_flair,True,bbox=bbox)
                     else : 
                         data_flair, *_ = self._preprocess_modality(bet_flair,False,bbox=bbox)
-                        if self.option.get("save_bet"):
-                            move_to_output(bet_flair)
+                        move_to_output(bet_flair)
                     data = np.concatenate([data_t1, data_flair], axis=0) # The model expects a NumPy array with two channels, so we concatenate along the channel axis
                     return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
                 else : 

@@ -6,9 +6,8 @@ from tkinter import Menu, filedialog, ttk, messagebox
 import onnxruntime as ort
 import os
 
-from gui.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
+from utils.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
 from inference.inference import Inference
-from logger.logger import setup_logger
 from utils.config_manager import Config
 from utils.models_manager import add_model, update_models
 from utils.option_manager import Option
@@ -22,11 +21,22 @@ class GUIMain:
     Graphical interface of the brain segmentation application
     This class initialize the Tkinter window, manage user inputs, run preprocessing, inference, postprocessing and updates the GUI
     """
-    def __init__(self)->None:
+    def __init__(self, input_path : str,only_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str)->None:
         """
         Initialize the graphical interface with all the Tkinter widgets and run the main Tkinter loop (mainloop)
+
+        Args:
+            input_path (str): The input path
+            only_preprocessing (bool): If True, the app will do the brain extraction only
+            keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
+            save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
+            threshold (float): Set the segmentation threshold to this value (0.5 if None)
+            model_name (str): The model with this name located in the models folder will be used
+            suffix (str): The suffix for the output segmentation (save it as default), use default one if None
+            viewer (str): Name of the viewer used to open the first input image and its segmentation
+            
+        These parameters are used to pre-fill the corresponding fields in the graphical interface.
         """
-        setup_logger(False)
         self.logger = logging.getLogger()
         self.logger.warning("="*60)
         self.logger.warning("This tool is for research purpose only ! ")
@@ -43,32 +53,46 @@ class GUIMain:
         self.window = tk.Tk()
         self.window.protocol("WM_DELETE_WINDOW", self._on_close) # Call self._on_close when the user tries to close de window
         self.window.title(APP_NAME)
-        self.input_path = tk.StringVar(value="")
-        self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
-        self.open_viewer = tk.BooleanVar()
-        self.save_bet = tk.BooleanVar()
-        self.keep_MNI = tk.BooleanVar()
-        self.save_pmap = tk.BooleanVar(value=False)
+        if input_path is None : 
+            self.input_path = tk.StringVar(value="")
+        else :
+            self.input_path = tk.StringVar(value=input_path)
+        if suffix is None:
+            self.suffix = tk.StringVar(value=self.config.get("default","suffix"))
+        else :
+            self.suffix = tk.StringVar(value=suffix)
+        
+        if viewer is None:
+            self.open_viewer = tk.BooleanVar(value=False)
+        else :
+            self.open_viewer = tk.BooleanVar(value=True)
+        
+        self.keep_MNI = tk.BooleanVar(value=keep_MNI)
+
+        self.save_pmap = tk.BooleanVar(value=save_pmap)
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
         self.working_on_text = tk.StringVar()
         self.result_text = tk.StringVar()
         self.subject_number_text = tk.StringVar()
-        self.threshold_var = tk.DoubleVar(value=0.5)
+        if threshold is None:
+            self.threshold_var = tk.DoubleVar(value=0.5)
+        else : 
+            self.threshold_var = tk.DoubleVar(value=threshold)
 
         menubar = Menu(self.window)
-        help_menu = Menu(menubar, tearoff=0)
-        help_menu.add_command(label='Help', command=self._show_help)
-        help_menu.add_command(label="About", command=self._show_about)
-        menubar.add_cascade(label='Help',menu=help_menu)
         
         self.option_menu = Menu(menubar,tearoff=0)
-        self.option_menu.add_checkbutton(label="Save brain-extracted image", variable=self.save_bet)
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
         self.option_menu.add_command(label='Import a model',command=self._show_import_model)
         menubar.add_cascade(label="Option",menu=self.option_menu)
+
+        help_menu = Menu(menubar, tearoff=0)
+        help_menu.add_command(label='Help', command=self._show_help)
+        help_menu.add_command(label="About", command=self._show_about)
+        menubar.add_cascade(label='Help',menu=help_menu)
         self.window.config(menu=menubar)
 
         
@@ -93,8 +117,16 @@ class GUIMain:
         self.combo_models = ttk.Combobox(frame,values=self.models,state="readonly")
         self.combo_models.bind("<<ComboboxSelected>>", self._on_model_change) # Call self._on_model_change when a model is selected
         default_model = self.config.get("default","model")
-        if default_model != "":
-            self.combo_models.current(self.models.index(default_model))
+        if model_name is None:
+            if default_model != "":
+                self.combo_models.current(self.models.index(default_model))
+        else :
+            if model_name in self.models :
+                self.combo_models.current(self.models.index(model_name))
+            else : 
+                self.logger.warning(f"Model '{model_name}' not in {self.models}")
+                self.combo_models.current(self.models.index(default_model))
+                
         self._on_model_change()
 
         self.label_open_viewer = tk.Label(frame, text="Open viewer : ")
@@ -106,16 +138,27 @@ class GUIMain:
             self.label_viewer_not_found = tk.Label(frame, text="No viewer found",fg="red")
         else :
             self.combo_viewers = ttk.Combobox(frame,values=self.viewers,state="readonly")
-            self.combo_viewers.current(self.viewers.index(self.config.get("default","viewer")))
+            if viewer is None or viewer == "default":
+                self.combo_viewers.current(self.viewers.index(self.config.get("default","viewer")))
+            else :
+                try :
+                    self.postprocessor.check_viewer(viewer)
+                    self.combo_viewers.current(self.viewers.index(viewer))
+                except Exception as e:
+                    self.logger.warning(f"Viewer check failed: {e}")
+                    self.combo_viewers.current(self.viewers.index(self.config.get("default","viewer")))
 
         self.label_keep_MNI = tk.Label(frame,text=" Output in MNI space ")
-        self.keep_MNI_button = tk.Checkbutton(frame, text="YES/NO", variable=self.keep_MNI, command=self._on_keep_MNI_toggle)
+        self.keep_MNI_button = tk.Checkbutton(frame, text="YES/NO", variable=self.keep_MNI)
 
         execution_modes = ["Prediction", "Brain extraction only"]
         self.label_exec_mode = tk.Label(frame, text="Execution mode : ")
         self.label_exec_mode.grid(row=6, column=0)
         self.combo_modes = ttk.Combobox(frame,values=execution_modes,state="readonly")
-        self.combo_modes.current(0)
+        if only_preprocessing : 
+            self.combo_modes.current(1)
+        else:
+            self.combo_modes.current(0)
         self.combo_modes.grid(row=6, column=1)
         self.combo_modes.bind("<<ComboboxSelected>>", self._on_mode_change) # Call self._on_mode_change when mode is selected
         self._on_mode_change()
@@ -130,18 +173,6 @@ class GUIMain:
 
         messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
         self.window.mainloop() # Starts the tkinter main loop in the main thread
-
-    def _on_keep_MNI_toggle(self)->None:
-        """
-        Handle the toggle of the keep_MNI option
-        If keep_MNI is True, disable the save brain exctracted image option, else, enable it
-        """
-        state = self.keep_MNI.get()
-        if state:
-            self.save_bet.set(False)
-            self.option_menu.entryconfig("Save brain-extracted image",state="disabled")
-        else:
-            self.option_menu.entryconfig("Save brain-extracted image",state="normal")
             
     def _check_path_filled(self)->None:
         """
@@ -194,7 +225,6 @@ class GUIMain:
             self.viewer_button.grid(row=4,column=1)
             self.label_keep_MNI.grid(row=5,column=0)
             self.keep_MNI_button.grid(row=5,column=1)
-            self.option_menu.entryconfig("Save brain-extracted image",state="normal")
             self.option_menu.entryconfig("Save probability map",state="normal")
             self.option_menu.entryconfig("Threshold",state="normal")
             if len(self.viewers)==0:
@@ -211,9 +241,7 @@ class GUIMain:
             self.combo_models.grid_remove()
             self.label_keep_MNI.grid_remove()
             self.keep_MNI_button.grid_remove()
-            self.save_bet.set(False)
             self.save_pmap.set(False)
-            self.option_menu.entryconfig("Save brain-extracted image",state="disabled")
             self.option_menu.entryconfig("Save probability map",state="disabled")
             self.option_menu.entryconfig("Threshold",state="disabled")
             if len(self.viewers)==0:
@@ -223,11 +251,35 @@ class GUIMain:
             
     def _show_threshold(self)->None:
         """
-        Display the threshold window with a cursor linked to the threshold of the segmentation
+        Display the threshold window with a slider and an entry field linked to the threshold of the segmentation
         """
         threshold_window= tk.Toplevel(self.window)
-        threshold = tk.Scale(threshold_window,orient=tk.HORIZONTAL,from_=0, to=1, resolution=0.01, label="Threshold", variable=self.threshold_var)
-        threshold.pack()
+        scale = tk.Scale(threshold_window,orient=tk.HORIZONTAL,from_=0, to=1, resolution=0.01, label="Threshold", variable=self.threshold_var, length=200)
+        scale.pack()
+
+        entry_label = tk.Label(threshold_window, text="Enter value (0.0 - 1.0):")
+        entry_label.pack()
+        entry = tk.Entry(threshold_window, width=6, justify='center')
+        entry.insert(0, str(self.threshold_var.get()))
+        entry.pack()
+        
+        # Synchronize Entry with Scale
+        def on_entry_change(*args):
+            try:
+                value = float(entry.get())
+                if 0.0 <= value <= 1.0:
+                    self.threshold_var.set(round(value, 2))
+            except ValueError:
+                pass
+        
+        # Synchronize Scale with Entry
+        def on_scale_change(value):
+            entry.delete(0, tk.END)
+            entry.insert(0, str(round(float(value), 2)))
+
+        entry.bind("<KeyRelease>", lambda event: on_entry_change())
+        scale.config(command=on_scale_change)
+
         ok_button = tk.Button(threshold_window, text="OK", command=threshold_window.destroy)
         ok_button.pack(pady=10)
 
@@ -426,11 +478,6 @@ class GUIMain:
             if viewer != self.config.get("default","viewer"):
                 self.config.set("default","viewer",viewer)
                 self.config.save()
-        
-        if self.save_bet.get():
-            self.option.set("save_bet", True)
-        else :
-            self.option.set("save_bet", False)
         
         if self.save_pmap.get():
             self.option.set("save_pmap", True)

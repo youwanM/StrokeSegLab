@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import onnxruntime as ort
@@ -43,6 +44,7 @@ def add_model(model_path : str)->str:
     Returns:
         str: Basename of the model without the extension
     """
+    logger = logging.getLogger()
     config = Config()
     models_str = config.get("default","models")
     models = [m.strip() for m in models_str.split(',')]
@@ -52,5 +54,10 @@ def add_model(model_path : str)->str:
         raise ValueError("Model file must be in .onnx format.")
     if model_name in models:
         raise ValueError(f"Model '{model_name}' already exists in the config.")
-    shutil.copy(model_path,os.path.join(MODEL_DIR,model))
+    try:
+        os.link(model_path, os.path.join(MODEL_DIR, model))
+        logger.debug(f"{model} hardlinked successfully")
+    except Exception:
+        shutil.copy(model_path, os.path.join(MODEL_DIR, model))
+        logger.debug(f"{model} copied because hardlink failed")
     return model_name 
