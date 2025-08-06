@@ -1,4 +1,5 @@
 # Internship Report
+## Introduction
 ## Context, Methodology and Work Plan
 - Objectif : Développement et optimisation d'un outil de segmentation des lésions cérébrales sur IRM après AVC 
 - Modèle IA existant qui fait la segmentation avec nnUNET : description du modèle ...
@@ -43,5 +44,88 @@ dans l'ordre :
 - Découverte et test de nnUNet, prédiction sur plusieurs machines et environnement (récupération d'un pc windows)
 - Première app à partir d'un nnUNet nettoyé pour prediction uniquement (comparaison taille app et venv en fonction de CUDA ou pas)
 - Test d'une app graphique, ça a convaincu l'équipe de faire à la fois une app command line et graphique simple avec tkinter
+### Packaging et developpement de l'app
 - Elaboration d'une architecture pour l'application finale (preproc, inference, postproc)
-- Développement de l'app ultra simple avec une partie du preproc 
+- Développement de l'app ultra simple avec preproc, l'inférence en pytorch et postporc + tests
+- Packaging de l'app : windows et fedora, pytorch GPU et CPU avec pyinstaller et python embed + comparaison
+- Découverte de onnx : plus léger pour l'inférence -> inférence avec et packaging à nouveau + comparaison
+- Choix selon comparaison : onnx et python embed sur windows et pyinstaller sur fedora + porjet script installation env de dev
+- Grosse phase de developpement : 
+    - Gérer model t1 /flair
+    - BIDS
+    - disclaimer + about + help 
+    - Choix espace MNI ou patient
+    - Stop réactif
+    - charger un modele, tester un modele local (cli uniquement), maj liste modèle dans .ini
+    - gestion des viewers
+    - threshold + pmap (options)
+    - sauvegarde brain extraction
+    - brain extraction only
+- creation d'un script pour créer env de dev sous linux
+- Docstring + commenter + documentation utlisateure
+- création d'un exe pour lancer le programme python avec python embed
+J'en suis ici 
+
+## Evaluation du travail/Bilan/Retour d'expérience
+Retour sur la méthode de travail ? les choix des technos en fonction du temps de stage ? L'app finale : taille performance utilisation ? Comment j'aurai fait si je reprend à 0
+
+## Conclusion
+
+
+
+# Outline of the report
+
+1 - INTRODUCTION
+
+2 - WORK ENVIRONMENT AND INTERNSHIP TOPIC
+
+- lab
+- team
+- supervisors
+- CSR analysis (asked)
+- internship topic presentation
+
+3 - CONTEXT ANALYSIS AND WORK PLAN 
+
+- main objective
+- medical and technical context : 
+    - existing model, nnUNet
+    - preprocessing and postprocessing performed
+- requested features (The list of feature)
+- possible technological solutions and choices :
+    - most likely Python but try C++
+    - full pipeline: preprocess, inference, post-processing
+    - packaging: pip, python embed, pyinstaller, etc.
+    - command line app, but a graphical app is also possible
+- work plan : 
+    - literature and technology review
+    - requirements review
+    - experiments and prototyping
+    - architecture design
+    - in parallel :
+        - application development
+        - packaging and deployment
+        - testing and comparison
+        - documentation
+    - final delivery and internship report
+
+4 - WORK DONE
+
+- literature and technology review
+- requirements review
+- experiments and prototyping
+- architecture design
+- application development
+- packaging and deployment
+- testing and comparison
+- documentation
+- final delivery
+
+5 - EVALUATION AND FEEDBACK
+
+- Work method
+- Technology choices
+- Application result
+- What I would change
+
+6 - CONCLUSION
