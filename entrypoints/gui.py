@@ -87,6 +87,7 @@ class GUIMain:
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
         self.option_menu.add_command(label='Import a model',command=self._show_import_model)
+        self.option_menu.add_command(label="Restore warning window", command=self._restore_warning_window)
         menubar.add_cascade(label="Option",menu=self.option_menu)
 
         help_menu = Menu(menubar, tearoff=0)
@@ -170,10 +171,33 @@ class GUIMain:
         self.stop_requested = False
         self.stop_button = tk.Button(frame, text="Stop", command=self._stop)
 
-
-        messagebox.showwarning(title='Research Purpose Only', message='This tool is for research purpose only !')
+        if self.config.get("default","show_warning")=="1":
+            self._show_warning()
         self.window.mainloop() # Starts the tkinter main loop in the main thread
-            
+
+    def _restore_warning_window(self):
+        self.config.set("default","show_warning","1")
+        self.option_menu.entryconfig("Restore warning window",state="disabled")
+        self.config.save()
+
+    def _show_warning(self):
+        def on_ok():
+            if var.get():
+                self.config.set("default","show_warning","0")
+                self.option_menu.entryconfig("Restore warning window",state="normal")
+                self.config.save()
+            else:
+                self.option_menu.entryconfig("Restore warning window",state="disabled")
+            waring_window.destroy()
+        
+        waring_window = tk.Toplevel(self.window)
+        waring_window.title("⚠️ WARNING")
+        waring_window.transient(self.window) # Make the warning window stay on top of the main window and minimize with it
+        tk.Label(waring_window, text="This tool is for research purpose only!", wraplength=280, font=("Arial", 12)).pack(pady=10, padx=10)
+        var = tk.BooleanVar()
+        tk.Checkbutton(waring_window, text="Do not show again", variable=var).pack()
+        tk.Button(waring_window, text="OK", command=on_ok).pack(pady=10)
+
     def _check_path_filled(self)->None:
         """
         Enable the run button only if the input path is set and there is model available

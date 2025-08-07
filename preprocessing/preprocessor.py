@@ -364,7 +364,7 @@ class Preprocessor:
         if self.gui != None and self.gui.check_stop():
             raise InterruptedError("Action was cancelled by the user.")
         
-        action_name="Z score name"
+        action_name="Z score norm"
         self._print_action(action_name)
         data= self._z_score_norm(data,seg)
         if self.gui != None and self.gui.check_stop():
