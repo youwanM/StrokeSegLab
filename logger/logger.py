@@ -2,6 +2,8 @@ import logging
 import os
 from datetime import datetime
 
+from utils.path import LOG_DIR
+
 def setup_logger(cli: bool = True, verbose : bool = False) -> None:
     """
     Configure the global logger for the application:
@@ -34,12 +36,12 @@ def setup_logger(cli: bool = True, verbose : bool = False) -> None:
         logger.addHandler(stream_handler)
     else:
         # Create logs directory and manage files
-        os.makedirs("logs", exist_ok=True)
-        log_files = sorted(os.listdir("logs"))
+        os.makedirs(LOG_DIR, exist_ok=True)
+        log_files = sorted(os.listdir(LOG_DIR))
         if len(log_files) >= 5:
-            os.remove(os.path.join("logs", log_files[0]))
+            os.remove(os.path.join(LOG_DIR, log_files[0]))
         
-        log_file = os.path.join("logs", f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+        log_file = os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
         
         # File handler
         file_handler = logging.FileHandler(log_file)

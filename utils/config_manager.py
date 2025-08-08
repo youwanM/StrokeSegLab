@@ -1,4 +1,5 @@
 import configparser
+import os
 from utils.singleton import SingletonMeta
 from utils.path import CONFIG_FILE
 
@@ -16,9 +17,17 @@ class Config(metaclass=SingletonMeta):
         Initialize the Config singleton by reading the config file
         Raises a FileNotFoundError if the config file does not exist or cannot be read
         """
-        self.config_path = CONFIG_FILE
         self.config = configparser.ConfigParser()
-        read_files = self.config.read(CONFIG_FILE)
+        config_dir = os.path.dirname(CONFIG_FILE)
+        os.makedirs(config_dir, exist_ok=True)
+        if not os.path.exists(CONFIG_FILE):
+            with open(CONFIG_FILE, "w") as f:
+                f.write("# config file\n")
+            read_files = self.config.read(CONFIG_FILE)
+            self.set("default","viewers","medinria,itksnap,fsleyes")
+            self.save()
+        else:
+            read_files = self.config.read(CONFIG_FILE)
         if not read_files:
             raise FileNotFoundError(f"Le fichier de config '{CONFIG_FILE}' est introuvable ou illisible.")
 
@@ -34,7 +43,13 @@ class Config(metaclass=SingletonMeta):
         Returns:
             str: Value corresponding to the key in the section
         """
-        return self.config[section][key]
+        try:
+            value =  self.config[section][key]
+        except:
+            self.set(section,key,"")
+            self.save()
+            value =""
+        return value
     
     def set(self, section: str, key: str, value: str)-> None:
         """
@@ -54,7 +69,7 @@ class Config(metaclass=SingletonMeta):
         """
         Save the current configuration back to the config file
         """
-        with open(self.config_path, "w") as configfile:
+        with open(CONFIG_FILE, "w") as configfile:
             self.config.write(configfile)
 
     def clear(self,section:str)->None:
