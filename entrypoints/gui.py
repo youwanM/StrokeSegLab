@@ -21,13 +21,14 @@ class GUIMain:
     Graphical interface of the brain segmentation application
     This class initialize the Tkinter window, manage user inputs, run preprocessing, inference, postprocessing and updates the GUI
     """
-    def __init__(self, input_path : str,only_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str)->None:
+    def __init__(self, input_path : str,only_preprocessing : bool,save_preprocessing:bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str)->None:
         """
         Initialize the graphical interface with all the Tkinter widgets and run the main Tkinter loop (mainloop)
 
         Args:
             input_path (str): The input path
             only_preprocessing (bool): If True, the app will do the brain extraction only
+            save_preprocessing (bool): If True, save all the preprocessing steps
             keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
             save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
             threshold (float): Set the segmentation threshold to this value (0.5 if None)
@@ -70,6 +71,7 @@ class GUIMain:
         self.keep_MNI = tk.BooleanVar(value=keep_MNI)
 
         self.save_pmap = tk.BooleanVar(value=save_pmap)
+        self.save_preproc = tk.BooleanVar(value=save_preprocessing)
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
@@ -85,6 +87,7 @@ class GUIMain:
         
         self.option_menu = Menu(menubar,tearoff=0)
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
+        self.option_menu.add_checkbutton(label="Save prerocessing", variable=self.save_preproc)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
         self.option_menu.add_command(label='Import a model',command=self._show_import_model)
         self.option_menu.add_command(label="Restore warning window", command=self._restore_warning_window)
@@ -250,6 +253,7 @@ class GUIMain:
             self.label_keep_MNI.grid(row=5,column=0)
             self.keep_MNI_button.grid(row=5,column=1)
             self.option_menu.entryconfig("Save probability map",state="normal")
+            self.option_menu.entryconfig("Save prerocessing",state="normal")
             self.option_menu.entryconfig("Threshold",state="normal")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid(row=4, column=2)
@@ -266,7 +270,9 @@ class GUIMain:
             self.label_keep_MNI.grid_remove()
             self.keep_MNI_button.grid_remove()
             self.save_pmap.set(False)
+            self.save_preproc.set(False)
             self.option_menu.entryconfig("Save probability map",state="disabled")
+            self.option_menu.entryconfig("Save prerocessing",state="disabled")
             self.option_menu.entryconfig("Threshold",state="disabled")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid_remove()
@@ -503,15 +509,9 @@ class GUIMain:
                 self.config.set("default","viewer",viewer)
                 self.config.save()
         
-        if self.save_pmap.get():
-            self.option.set("save_pmap", True)
-        else:
-            self.option.set("save_pmap",False)
-        
-        if self.keep_MNI.get():
-            self.option.set("keep_MNI", True)
-        else:
-            self.option.set("keep_MNI", False)
+        self.option.set("save_pmap", self.save_pmap.get())
+        self.option.set("save_preproc", self.save_preproc.get())
+        self.option.set("keep_MNI", self.keep_MNI.get())
         
         self.nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if self.option.get("flair") and subject != flair:

@@ -27,17 +27,14 @@ def update_models() -> None:
         config.clear("ModelChannels") 
         for model in models: # Save the number of input channels for each model in the directory
             model_path = os.path.join(MODEL_DIR, model+".onnx")
-            session = ort.InferenceSession(model_path)
-            input_tensor = session.get_inputs()[0]
-            channels = input_tensor.shape[1]
+            channels = get_input_channels(model_path)
             config.set("ModelChannels",model,str(channels))
         config.save()
 
 def add_model(model_path : str)->str:
     """
     Copy a model file in the models directory
-    Raises errors if the model already exist or if the file isn't a .onnx
-
+    Raises errors if the model already exist or if the file isn't a .onnx   
     Args:
         model_path (str): Path of the model to import
 
@@ -61,3 +58,17 @@ def add_model(model_path : str)->str:
         shutil.copy(model_path, os.path.join(MODEL_DIR, model))
         logger.debug(f"{model} copied because hardlink failed")
     return model_name 
+
+def get_input_channels(model_path : str)->int:
+    """
+    Determine the number of input channels in a model
+
+    Args:
+        model_path (str): Path of the model
+
+    Returns:
+        int: Number of channels
+    """
+    session = ort.InferenceSession(model_path)
+    input_tensor = session.get_inputs()[0]
+    return input_tensor.shape[1]

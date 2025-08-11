@@ -43,6 +43,7 @@ def parse_args(gui : bool) -> argparse.Namespace:
     parser.add_argument("-s", "--suffix", help="output name suffix (optional)")
     parser.add_argument("-V", "--viewer", nargs="?",const="default",help="Specify a viewer name, or use default if none is given")
     parser.add_argument("--only-preproc", action="store_true", help="Run only the preprocessing step and stop")
+    parser.add_argument("--save-preproc", action="store_true", help="Save all the preprocessing steps")
     parser.add_argument("--keep-mni", action="store_true", help="Save the input and output images registered to the MNI space")
     parser.add_argument("-t", "--threshold",  type=restricted_float, default=None, help="Threshold (optional)")
     parser.add_argument("--pmap", action="store_true", help="Save probability map")
@@ -57,10 +58,10 @@ def parse_args(gui : bool) -> argparse.Namespace:
         if (args.input and args.import_model) or (not args.input and not args.import_model):
             parser.error("You must specify either --input or --import-model")
 
-        if args.import_model is not None and (args.keep_mni or args.pmap or args.model or args.only_preproc or args.suffix is not None or args.viewer is not None or args.threshold is not None):
+        if args.import_model is not None and (args.keep_mni or args.pmap or args.model or args.only_preproc or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
             parser.error("When --import-model is used, no other options must be set!")
 
-    if args.only_preproc and (args.keep_mni or args.pmap or args.model is not None or args.suffix is not None or args.viewer is not None or args.threshold is not None):
+    if args.only_preproc and (args.keep_mni or args.pmap or args.model is not None or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
         parser.error("When --only-preprocessing is used, no other options must be set!")
     return args
 
@@ -79,6 +80,7 @@ if __name__ == "__main__":
                 threshold = args.threshold,
                 suffix = args.suffix,
                 viewer = args.viewer,
+                save_preprocessing = args.save_preproc,
                 )
     else:
         # Initialize the CLI application with parsed arguments
@@ -93,6 +95,7 @@ if __name__ == "__main__":
             suffix = args.suffix,
             viewer = args.viewer,
             import_model = args.import_model,
+            save_preprocessing = args.save_preproc,
         )
         if args.import_model is None:
             app.run() # Prediction or brain extraction mode

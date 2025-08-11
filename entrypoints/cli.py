@@ -1,7 +1,7 @@
 import time
 from inference.inference import Inference
 from utils.config_manager import Config
-from utils.models_manager import add_model, update_models
+from utils.models_manager import add_model, get_input_channels, update_models
 from utils.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
@@ -14,13 +14,14 @@ class CLIMain:
     """
     Command line tool for the segmentation application
     """
-    def __init__(self, input_path : str,only_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
+    def __init__(self, input_path : str,only_preprocessing : bool, save_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
         """
         Initialize the cli 
 
         Args:
             input_path (str): The input path
             only_preprocessing (bool): If True, the app will do the brain extraction only
+            save_preprocessing (bool): If True, save all the preprocessing steps
             keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
             save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
             threshold (float): Set the segmentation threshold to this value (0.5 if None)
@@ -39,14 +40,9 @@ class CLIMain:
             self.option.set("input_path",input_path)
             self.only_preprocessing = only_preprocessing
             self.threshold = 0.5 if threshold is None else threshold
-            if keep_MNI:
-                self.option.set("keep_MNI", True)
-            else:
-                self.option.set("keep_MNI", False)
-            if save_pmap:
-                self.option.set("save_pmap", True)
-            else:
-                self.option.set("save_pmap",False)
+            self.option.set("save_preproc", save_preprocessing)
+            self.option.set("keep_MNI", keep_MNI)
+            self.option.set("save_pmap", save_pmap)
             self.preprocessor = Preprocessor()
             if not self.only_preprocessing :
                 if model_name !=None:
@@ -123,11 +119,19 @@ class CLIMain:
         Run the prediction or the brain extraction only with all the options specified
         """
         start = time.time()
-        model_name = self.config.get("default","model")
-        if self.config.get("ModelChannels",model_name)=="2":
-            self.option.set("flair",True)
-        else:
-            self.option.set("flair",False)
+        if self.option.get("model_path") is None:
+            model_name = self.config.get("default","model")
+            if self.config.get("ModelChannels",model_name)=="2":
+                self.option.set("flair",True)
+            else:
+                self.option.set("flair",False)
+        else :
+            channels = get_input_channels(self.option.get("model_path"))
+            if channels==2:
+                self.option.set("flair",True)
+            else:
+                self.option.set("flair",False)
+
         
         if not self.only_preprocessing and self.viewer != None and self.viewer != "default":
             try :

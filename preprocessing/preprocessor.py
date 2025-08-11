@@ -85,23 +85,24 @@ class Preprocessor:
             data /= (max(std, 1e-8))
         return data
 
-    def _bias_correct(self,img_path : str)-> str:
+    def _bias_correct(self,img_path : str, prefix:str)-> str:
         """
         Use an Anima executable through a wrapper to perform bias correction on the image
 
         Args:
             img_path (str): Path of the image
+            prefix (str): Prefix for the output file name (the method will append '_N4.nii.gz' to this prefix).
 
         Returns:
             str: Output path
         """
-        output_path=img_path.replace('.nii.gz', '_N4.nii.gz')
+        output_path=prefix + '_N4.nii.gz'
         command=["animaN4BiasCorrection","-i",img_path,"-o",output_path]
         self.wrapper.run(command)
         return output_path
 
         
-    def _register_to_reference(self,img_path : str ,ref : str ,suffix : str ,prefix : str =None) -> tuple[str,str]:
+    def _register_to_reference(self,img_path : str ,ref : str ,suffix : str ,prefix : str ) -> tuple[str,str]:
         """
         Register an image to a reference using Anima's pyramidal block matching registration.
 
@@ -109,18 +110,12 @@ class Preprocessor:
             img_path (str): Image path
             ref (str): Reference image path
             suffix (str): Suffix to add to the output registered image filename
-            prefix (str, optional): Custom prefix for the output image filename. Allows to separate different registration. Defaults to None.
+            prefix (str): Prefix for the output image filename
 
         Returns:
             tuple[str,str]: Output path of the registered image, Output path of the transformation file (.txt)
         """
-        if prefix is None:
-            if img_path.endswith(".nii.gz"):
-                output_path= img_path.replace('.nii.gz', "_"+suffix+'.nii.gz')
-            elif img_path.endswith(".nii"):
-                output_path= img_path.replace('.nii', "_"+suffix+'.nii.gz') # needs to handle .nii.gz and .nii file too because it's the first step of preprocessing 
-        else : 
-            output_path = prefix + "_" + suffix + ".nii.gz"
+        output_path = prefix + "_" + suffix + ".nii.gz"
         trsf_path = output_path.replace('.nii.gz', '.txt')
         command=["animaPyramidalBMRegistration","-m",img_path,"-r",ref,"-o",output_path,"-O",trsf_path]
         self.wrapper.run(command)
@@ -136,19 +131,20 @@ class Preprocessor:
         if(self.gui !=None):
             self.gui.update_status(f"Preprocessing : Starting {action_name}...")
 
-    def _reorient_RAS(self,img_path : str)->str:
+    def _reorient_RAS(self,img_path : str,prefix : str)->str:
         """
         Reorient to RAS an image
 
         Args:
             img_path (str): Image path
+            prefix (str): Prefix for the output image filename
 
         Returns:
             str: Output path
         """
         img = nib.load(img_path)
         reoriented_img = nib.as_closest_canonical(img)
-        output_path=img_path.replace('.nii.gz','_RAS.nii.gz')
+        output_path=prefix + '_RAS.nii.gz'
         nib.save(reoriented_img, output_path)
         return output_path
 
@@ -245,6 +241,7 @@ class Preprocessor:
             - Path to the brain-extracted T1 image
             - Reference MNI image array or None
         """
+        self.preprocessing_steps = []
         prefix = os.path.join(temp_dir,get_image_basename(t1))
         if not prefix.endswith((BET,MNI)): 
             if self.gui != None and self.gui.check_stop():
@@ -274,6 +271,7 @@ class Preprocessor:
                     action_name = "register FLAIR to T1" # One more step before: register the FLAIR image to the T1, so it can be preprocessed the same way
                     self._print_action(action_name)
                     flair_t1,_ = self._register_to_reference(flair, t1,T1,prefix=prefix)
+                    self.preprocessing_steps.append(flair_t1)
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                     action_name="brain extraction"
@@ -290,12 +288,20 @@ class Preprocessor:
                         data_flair, *_ = self._preprocess_modality(bet_flair,False,bbox=bbox)
                         move_to_output(bet_flair)
                     data = np.concatenate([data_t1, data_flair], axis=0) # The model expects a NumPy array with two channels, so we concatenate along the channel axis
+                    if self.option.get("save_preproc"):
+                        for path in self.preprocessing_steps:
+                            self.logger.debug(f"saving : {path}")
+                            move_to_output(path)
                     return data, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
                 else : 
                     move_to_output(bet_flair)
             else:
                 raise ValueError("FLAIR image is required but was not provided") # Normally, it doesn't happen because find_nii_files return only subjects with both a T1 and a FLAIR
         elif not bet_only:
+            if self.option.get("save_preproc"):
+                for path in self.preprocessing_steps:
+                    self.logger.debug(f"saving : {path}")
+                    move_to_output(path)
             return data_t1, affine, bbox, original_shape, trsf_path, spacing, padding, bet_t1, MNI_base_image
 
     
@@ -322,24 +328,28 @@ class Preprocessor:
             - Reference MNI image array or None    
         """
         if not is_MNI:
+            prefix= os.path.join(os.path.dirname(modality),rm_entity(modality,BET))
             action_name="bias correction"
             self._print_action(action_name)
-            n4_output=self._bias_correct(modality)
+            n4_output=self._bias_correct(modality,prefix)
+            self.preprocessing_steps.append(n4_output)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
 
             action_name="reorient to RAS"
             self._print_action(action_name)
-            RAS_output=self._reorient_RAS(n4_output)
+            RAS_output=self._reorient_RAS(n4_output,prefix)
+            self.preprocessing_steps.append(RAS_output)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
             
             action_name="register to MNI"
             self._print_action(action_name)
-            MNI_output,trsf_path=self._register_to_reference(RAS_output,self.atlasImage,MNI)
+            MNI_output,trsf_path=self._register_to_reference(RAS_output,self.atlasImage,MNI,prefix)
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
-        else : 
+        else :
+            prefix = os.path.join(os.path.dirname(modality),rm_entity(modality,MNI))
             MNI_output = modality
             trsf_path = None
 
@@ -350,6 +360,7 @@ class Preprocessor:
                 MNI_output=shutil.copy(MNI_output,new_output)
             MNI_base_image = move_to_output(MNI_output)
         else:
+            self.preprocessing_steps.append(MNI_output)
             MNI_base_image = None
         data, spacing, affine, original_shape = self._load_img(MNI_output)
         if bbox is None:
@@ -374,6 +385,7 @@ class Preprocessor:
         self._print_action(action_name)
         data,padding= self._padding(data)
         return data, affine, bbox, original_shape, trsf_path, spacing, padding, MNI_base_image
+    
     
     def clean(self,temp_dir):
         if os.path.exists(temp_dir):
