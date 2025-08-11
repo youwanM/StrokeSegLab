@@ -25,6 +25,7 @@ class Config(metaclass=SingletonMeta):
                 f.write("# config file\n")
             read_files = self.config.read(CONFIG_FILE)
             self.set("default","viewers","medinria,itksnap,fsleyes")
+            self.set("default","show_warning","1")
             self.save()
         else:
             read_files = self.config.read(CONFIG_FILE)
