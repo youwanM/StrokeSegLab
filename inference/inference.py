@@ -1,9 +1,9 @@
 import logging
 import os
 import onnxruntime as ort
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.models_manager import update_models
-from utils.option_manager import Option
+from managers.option_manager import Option
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import time

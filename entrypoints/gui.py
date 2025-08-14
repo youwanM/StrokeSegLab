@@ -8,9 +8,9 @@ import os
 
 from utils.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
 from inference.inference import Inference
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.models_manager import add_model, update_models
-from utils.option_manager import Option
+from managers.option_manager import Option
 from utils.path import LOGO
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor

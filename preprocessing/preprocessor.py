@@ -1,10 +1,10 @@
 import logging
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.naming import BET, DERIVATIVES, EXTENSIONS, FLAIR, MNI, RAWDATA, T1
-from utils.option_manager import Option
+from managers.option_manager import Option
 from preprocessing.brain_extraction import BrainExtracter
 from preprocessing.resampling import Resampler
-from preprocessing.wrapper import AnimaWrapper
+from utils.wrapper import AnimaWrapper
 from scipy.ndimage import binary_fill_holes
 from preprocessing.utils import get_bbox_from_mask, bounding_box_to_slice
 from utils.path import ATLAS_DIR

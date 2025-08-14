@@ -1,4 +1,4 @@
-from utils.singleton import SingletonMeta
+from managers.singleton import SingletonMeta
 from typing import TypeVar
 
 T = TypeVar("T")

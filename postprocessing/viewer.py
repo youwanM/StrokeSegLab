@@ -2,7 +2,7 @@ import logging
 import shutil
 import subprocess
 import platform
-from utils.config_manager import Config
+from managers.config_manager import Config
 
 
 class Viewer:

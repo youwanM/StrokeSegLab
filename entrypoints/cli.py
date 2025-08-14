@@ -1,8 +1,8 @@
 import time
 from inference.inference import Inference
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.models_manager import add_model, get_input_channels, update_models
-from utils.option_manager import Option
+from managers.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import onnxruntime as ort

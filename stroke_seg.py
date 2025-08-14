@@ -4,8 +4,8 @@ from entrypoints.gui import GUIMain
 
 import sys
 
-from logger.logger import setup_logger
-from utils.config_manager import Config
+from utils.logger import setup_logger
+from managers.config_manager import Config
 
 def restricted_float(x : str)->float:
     """

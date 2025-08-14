@@ -1,6 +1,6 @@
 import configparser
 import os
-from utils.singleton import SingletonMeta
+from managers.singleton import SingletonMeta
 from utils.path import CONFIG_FILE
 
 class Config(metaclass=SingletonMeta):

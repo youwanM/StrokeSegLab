@@ -1,7 +1,7 @@
 import os
 import shutil
 from utils.naming import DERIVATIVES, EXTENSIONS, RAWDATA
-from utils.option_manager import Option
+from managers.option_manager import Option
 
 
 def get_image_basename(img_path : str)->str:

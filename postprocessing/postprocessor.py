@@ -4,12 +4,12 @@ import nibabel
 import os
 import numpy as np
 from scipy.special import expit, softmax
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.naming import BET, DERIVATIVES, EXTENSIONS, MNI, PMAP, RAWDATA, T1
-from utils.option_manager import Option
+from managers.option_manager import Option
 from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
-from preprocessing.wrapper import AnimaWrapper
+from utils.wrapper import AnimaWrapper
 from utils.processing_utils import get_image_basename, move_to_output, rm_entity
 
 class Postprocessor:

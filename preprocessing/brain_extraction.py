@@ -1,4 +1,4 @@
-from preprocessing.wrapper import AnimaWrapper
+from utils.wrapper import AnimaWrapper
 from utils.path import ATLAS_DIR
 import os
 class BrainExtracter:

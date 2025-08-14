@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 import onnxruntime as ort
-from utils.config_manager import Config
+from managers.config_manager import Config
 from utils.path import MODEL_DIR
 
 
