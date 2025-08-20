@@ -16,7 +16,7 @@ The GUI can be launched either by double-clicking the executable or by running i
 When opening the application, a pop-up window appears on the main screen :
 > This application is for research purpose only !
 
-You cannot use the application until you close this message by clicking "OK" or the close button
+You cannot use the application until you close this message by clicking "OK" or the close button. If you don’t want to see the message again, you can check the “Do not show again” option. If later you want to see it at startup, there is a “Restore warning window” option in the Options menu.
 
 ### Main Window
 The main window is composed of a menu bar and, below it, a large frame containing several fields.
@@ -83,11 +83,13 @@ This section explains how to use the application from the command line (CLI).
 
 This section explains how to use the application from the command line (CLI).
 
-The CLI is launched by running `python stroke_seg.py` with the appropriate arguments. If no arguments are provided, the graphical interface will open by default. You must specify either `--input` (for processing data) or `--import-model` (for model management). These options cannot be used together.
+The application is launched by running `python stroke_seg.py` or `StrokeSeg.exe` if you have the Windows executbale. If no arguments are provided, the graphical interface will open by default. If you specify `--gui`, it will open the GUI with all the specified option prefilled. 
+
+In CLI mode, you must specify either `--input` (for processing data) or `--import-model` (for model management). These options cannot be used together.
 
 **Prediction Mode**: Segment and detect stroke lesions in brain MRI images. Requires `--input`. The `--model` option can be used to specify either the name of an already imported model or the path to a model file (useful for testing a model before importing it). Other options allow customization of output and processing.
 
-**Brain Extraction Only Mode**: Use `--input` and `--only-preprocessing` to perform only the brain extraction step. No other options should be set.
+**Brain Extraction Only Mode**: Use `--input` and `--only-preproc` to perform only the brain extraction step. No other options should be set.
 
 **Model Management**:
 - Import a new ONNX model with `--import-model /path/to/model.onnx`.
@@ -97,14 +99,15 @@ The CLI is launched by running `python stroke_seg.py` with the appropriate argum
 - `--input`: Required for prediction or brain extraction. Path to the input image(s) or folder.
 - `--import-model`: Required for importing a new ONNX model or listing available models. No other options can be set with this argument.
 - Other options (optional, depending on mode):
-  - `--model`: Name of an imported model or path to a model file (for prediction)
-  - `--suffix`: Output file suffix
-  - `--viewer`: Viewer name (ITK-SNAP, FSLeyes, medInria)
-  - `--only-preprocessing`: Run only brain extraction
-  - `--save-preprocessing`: Save brain-extracted image
+  - `--model` or `-m`: Name of an imported model or path to a model file (for prediction)
+  - `--suffix` or `-s`: Output file suffix
+  - `--viewer` or `-V`: Viewer name (ITK-SNAP, FSLeyes, medInria)
+  - `--only-preproc`: Run only brain extraction
+  - `--save-preproc`: Save all preprocessing steps
   - `--keep-mni`: Save input/output images in MNI space
-  - `--threshold`: Segmentation threshold
+  - `--threshold` or `-t`: Segmentation threshold
   - `--pmap`: Save probability map
+  - `-v` : Enable verbose mode (set logginh level to DEBUG instead of INFO)
 
 ### Monitoring and Logs
 During execution, log messages are displayed in the terminal to keep you informed about progress, errors, and important information for each subject processed. Processing can take a significant amount of time depending on the data and options selected.
