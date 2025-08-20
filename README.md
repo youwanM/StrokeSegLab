@@ -32,7 +32,7 @@ For detailed usage instructions, please refer to the [USER_GUIDE.md](./USER_GUID
 To set up the application, simply run the provided setup script:
 
 ```sh
-[setup.sh](./setup.sh)
+./setup.sh
 ```
 
 You do not need to manually clone the repository; the [`setup.sh`](./setup.sh) script will handle cloning automatically. If you have already cloned the repository, make sure it is located in a parent directory named `StrokeSeg.sh`, and execute [`setup.sh`](./setup.sh) from the parent of `StrokeSeg.sh`. The script will update the repository and install all necessary dependencies for you.
