@@ -140,7 +140,7 @@ class CLIMain:
                 self.logger.error(f"Viewer check failed: {e}")
                 raise
 
-        temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
+        
         i=0
         nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if len(nii_paths)==0:
@@ -152,6 +152,7 @@ class CLIMain:
                 self.logger.info(f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image.")
         self.logger.info(f"{len(nii_paths)} subject(s) found")
         for t1, flair in nii_paths.items():
+            temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
             try:
                 if flair is None:
                     self.logger.info(f"Starting processing on: {os.path.basename(t1)}")
@@ -167,6 +168,7 @@ class CLIMain:
                 else : # Preprocessing only
                     self.preprocessor.run(t1,flair,temp_dir,True)
                 i+=1
+                self.preprocessor.clean(temp_dir)
             except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Error while processing {t1} : {e}")
         self.preprocessor.clean(temp_dir)

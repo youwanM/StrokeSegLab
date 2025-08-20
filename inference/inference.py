@@ -130,6 +130,7 @@ class Inference:
         
         # Get ONNX model input name
         input_name = self.ort_session.get_inputs()[0].name
+        input_type = self.ort_session.get_inputs()[0].type
         
         for x_coord in steps[0]:
             for y_coord in steps[1]:
@@ -138,7 +139,12 @@ class Inference:
                     if self.gui != None and self.gui.check_stop():
                         raise InterruptedError("Action was cancelled by the user.")
                     patch = data[:,x_coord:x_coord+self.patch_size[0],y_coord:y_coord+self.patch_size[1],z_coord:z_coord+self.patch_size[2]]
-                    patch = np.expand_dims(patch, axis=0).astype(np.float32)
+                    if input_type == "tensor(float16)":
+                        self.logger.info("using float16 model")
+                        patch = np.expand_dims(patch, axis=0).astype(np.float16)
+                    else : 
+                        patch = np.expand_dims(patch, axis=0).astype(np.float32)
+
                     
                     # Run ONNX inference
                     pred = self.ort_session.run(None, {input_name: patch})[0]

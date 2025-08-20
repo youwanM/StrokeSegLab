@@ -551,9 +551,9 @@ class GUIMain:
         """
         threshold = self.threshold_var.get()
         len_nii_paths= len(self.nii_paths)
-        temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
         for t1, flair in self.nii_paths.items():
+            temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
             try:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
@@ -575,11 +575,12 @@ class GUIMain:
                 else : 
                     self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,threshold)
                 i+=1
+                self.preprocessor.clean(temp_dir)
             except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
+                self.preprocessor.clean(temp_dir)
         self.window.after(0,self._update_result) # Call for update_result in the main thread
-        self.preprocessor.clean(temp_dir)
 
     def _run_bet(self)->None:
         """
@@ -604,9 +605,9 @@ class GUIMain:
         - Update the UI during the process using self.window.after because Tkinter isn't thread safe, we can't modify the UI from a secondary thread. So 'after' is scheduling an update in the main thread
         """
         len_nii_paths= len(self.nii_paths)
-        temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
         i=0
         for t1, flair in self.nii_paths.items():
+            temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
             try:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
@@ -617,11 +618,12 @@ class GUIMain:
                 if self.check_stop():
                     raise InterruptedError("Action was cancelled by the user.")
                 i+=1
+                self.preprocessor.clean(temp_dir)
             except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
                 self.logger.error(f"Erreur lors du traitement de {t1} : {e}")
                 self.success = False
+                self.preprocessor.clean(temp_dir)
         self.window.after(0,self._update_result) # Call for update_result in the main thread
-        self.preprocessor.clean(temp_dir)
 
     def _update_result(self)->None:
         """

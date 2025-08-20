@@ -16,3 +16,4 @@ venvonnx
 dcm2niix
 *.nrrd
 internship_report.md
+convertor-fp16.py

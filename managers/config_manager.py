@@ -24,11 +24,14 @@ class Config(metaclass=SingletonMeta):
             with open(CONFIG_FILE, "w") as f:
                 f.write("# config file\n")
             read_files = self.config.read(CONFIG_FILE)
-            self.set("default","viewers","medinria,itksnap,fsleyes")
+            self.set("default","viewers","medInria,itksnap,fsleyes")
             self.set("default","show_warning","1")
             self.save()
         else:
             read_files = self.config.read(CONFIG_FILE)
+            if self.get("default","viewers") != "medInria,itksnap,fsleyes":
+                self.set("default","viewers","medInria,itksnap,fsleyes")
+                self.save()
         if not read_files:
             raise FileNotFoundError(f"Le fichier de config '{CONFIG_FILE}' est introuvable ou illisible.")
 

@@ -20,12 +20,26 @@ class Viewer:
         viewer = self.config.get('default','viewer')
         self.viewers = self.config.get('default', 'viewers').split(',')
         self.viewers = [v for v in self.viewers]
+        
+
         if not viewer :
             self.update_path()
         else:
             path = self.config.get('ViewerPath',viewer)
             if not path:
                 self.update_path()
+            else :
+                # Check if there are new viewers
+                no_path_viewers = [v for v in self.viewers if not self.config.get("ViewerPath", v)]
+                for v in no_path_viewers:
+                    if v == "itksnap" and platform.system() == "Windows":
+                        path = shutil.which("itk-snap") # The correct shortcut on Windows is itk-snap, not itksnap
+                    else:
+                        path = shutil.which(v)
+                    if path is not None:
+                        self.config.set('ViewerPath', v, path)
+                        self.config.save()
+
 
     def update_path(self) -> None:
         """
@@ -59,13 +73,8 @@ class Viewer:
         
         path = self.config.get('ViewerPath', viewer)
         if not path:
-            if viewer == "itksnap":
-                if platform.system() == "Windows":
-                    path = shutil.which("itk-snap")
-                else :
-                    shutil.which(viewer)
-            else:
-                path = shutil.which(viewer)
+            path = shutil.which("itk-snap" if viewer == "itksnap" and platform.system() == "Windows" else viewer)
+
             if not path:
                 raise FileNotFoundError(f"Viewer '{viewer}' not found in PATH.")
 
@@ -85,7 +94,7 @@ class Viewer:
         path = self.config.get("ViewerPath",viewer)
         if viewer ==  "itksnap":
             command = [path,"-g", img_path,"-s",seg_path]
-        elif viewer == "fsleyes" :
+        else:
             command = [path, img_path, seg_path]
         
         try:
