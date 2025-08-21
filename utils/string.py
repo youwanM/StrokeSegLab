@@ -25,14 +25,3 @@ This application also use Anima for medical image processing which is distribute
 """
 
 PUBLICATIONS = [(" Deep Learning and Multi-Modal MRI for the Segmentation of Sub-Acute and Chronic Stroke Lesions ","Alessandro Di Matteo, Youwan Mahé, Stéphanie s Leplaideur, Isabelle Bonan, Elise Bannier, et al.. Deep Learning and Multi-Modal MRI for the Segmentation of Sub-Acute and Chronic Stroke Lesions. 2025. ⟨hal-04647365v2⟩")]
-
-HELP = """
-The first rule of Fight Club is: You do not talk about Fight Club.
-The second rule of Fight Club is: You do not talk about Fight Club.
-The third rule of Fight Club: Someone yells stop, goes limp, taps out, the fight is over.
-The fourth rule: Only two guys to a fight.
-The fifth rule: One fight at a time, fellas.
-The sixth rule: No shirts, no shoes.
-The seventh rule: Fights will go on as long as they have to.
-And the eighth and final rule: If this is your first night at Fight Club, you have to fight.
-"""

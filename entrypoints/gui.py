@@ -1,12 +1,13 @@
 import logging
-import sys
 import tempfile
 import tkinter as tk
 from tkinter import Menu, filedialog, ttk, messagebox
 import onnxruntime as ort
 import os
+from tkhtmlview import HTMLLabel
+import markdown
 
-from utils.string import APP_NAME, DEVELOPERS, HELP, LICENSE, PUBLICATIONS, VERSION
+from utils.string import APP_NAME, DEVELOPERS, LICENSE, PUBLICATIONS, VERSION
 from inference.inference import Inference
 from managers.config_manager import Config
 from utils.models_manager import add_model, update_models
@@ -347,13 +348,30 @@ class GUIMain:
         """
         Display the help window
         """
-        size =500
-        help_window= tk.Toplevel(self.window)
+
+        with open("USER_GUIDE.md", "r", encoding="utf-8") as f:
+            md_text = f.read()
+
+        html_text = markdown.markdown(md_text)
+
+        help_window = tk.Toplevel(self.window)
         tk.Label(help_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
-        tk.Label(help_window,text=VERSION).pack(pady=10)
+        tk.Label(help_window, text=VERSION).pack(pady=10)
         help_window.logo = tk.PhotoImage(file=LOGO)
-        tk.Label(help_window, text = HELP, justify='left',wraplength=size ).pack(anchor='w')
-        tk.Button(help_window, text="Close", command=help_window.destroy).pack(anchor='e',padx=10,pady=[0,10])
+        tk.Label(help_window, image=help_window.logo).pack(pady=5)
+
+        frame = tk.Frame(help_window)
+        frame.pack(fill='both', expand=True, padx=5, pady=5)
+
+        html_label = HTMLLabel(frame, html=html_text)
+        html_label.pack(side='left', fill='both', expand=True)
+
+        scrollbar = tk.Scrollbar(frame, command=html_label.yview)
+        scrollbar.pack(side='right', fill='y')
+        html_label.config(yscrollcommand=scrollbar.set)
+
+        tk.Button(help_window, text="Close", command=help_window.destroy).pack(side='bottom', pady=5)
+
 
     def _show_import_model(self)->None:
         """
