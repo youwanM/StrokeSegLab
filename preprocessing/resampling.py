@@ -1,11 +1,12 @@
 import time
 import numpy as np
-from batchgenerators.augmentations.utils import resize_segmentation
 from collections import OrderedDict
 from skimage.transform import resize
 from copy import deepcopy
 from scipy.ndimage import map_coordinates
 import pandas as pd
+
+from preprocessing.utils import resize_segmentation
 
 class Resampler:
     """
