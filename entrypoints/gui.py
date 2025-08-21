@@ -12,7 +12,7 @@ from inference.inference import Inference
 from managers.config_manager import Config
 from utils.models_manager import add_model, update_models
 from managers.option_manager import Option
-from utils.path import LOGO
+from utils.path import LOGO, USER_GUIDE
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import threading
@@ -349,7 +349,7 @@ class GUIMain:
         Display the help window
         """
 
-        with open("USER_GUIDE.md", "r", encoding="utf-8") as f:
+        with open(USER_GUIDE, "r", encoding="utf-8") as f:
             md_text = f.read()
 
         html_text = markdown.markdown(md_text)
