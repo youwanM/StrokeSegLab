@@ -19,7 +19,6 @@ This application uses the following open-source Python libraries:
 - ONNX Runtime, 1.22.0,  github.com/microsoft/onnxruntime
 - nibabel, 5.3.2, github.com/nipy/nibabel
 - scipy, 1.16.0, github.com/scipy/scipy
-- batchgenerators, 0.25.1, github.com/MIC-DKFZ/batchgenerators
 
 This application also use Anima for medical image processing which is distributed under the AGPL v3 license, github.com/Inria-Empenn/Anima-Public
 """
