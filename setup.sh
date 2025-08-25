@@ -19,7 +19,7 @@ cd "$app_name"
 
 # Clone the app repository
 if [ ! -d "app_seg" ]; then
-  git clone git@github.com:ykerverdo/app_seg.git
+  git clone git@github.com:Empenn-Stroke/app_StrokeSeg.git
   echo "app repository cloned"
 else
   cd app_seg && git pull
