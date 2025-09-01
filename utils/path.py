@@ -3,7 +3,7 @@ import sys
 
 from utils.string import APP_NAME
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if sys.platform == "win32":
     ROAMING = os.getenv("APPDATA")
     LOCAL = os.getenv("LOCALAPPDATA")
@@ -18,10 +18,10 @@ else:
     LOCAL = os.path.expanduser("~/.local/share")
     
 CONFIG_FILE = os.path.join(ROAMING, APP_NAME, "config.ini")
-ANIMA_DIR = os.path.join(BASE_DIR, "anima")
+ANIMA_DIR = os.path.join(BASE_DIR, "../Anima")
 ATLAS_DIR = os.path.join(PROGRAMDATA, APP_NAME, "Atlas")
 MODEL_DIR = os.path.join(PROGRAMDATA, APP_NAME, "Models")
-LOGO_INRIA = os.path.join(BASE_DIR,"StrokeSegCore", "assets", "INRIA.png")
-LOGO = os.path.join(BASE_DIR,"StrokeSegCore", "assets", "brain.png")
-LOG_DIR = os.path.join(LOCAL,APP_NAME,"logs")
-USER_GUIDE = os.path.join(BASE_DIR,"StrokeSegCore","USER_GUIDE.md")
+LOGO_INRIA = os.path.join(BASE_DIR, "assets", "INRIA.png")
+LOGO = os.path.join(BASE_DIR, "assets", "brain.png")
+LOG_DIR = os.path.join(LOCAL, APP_NAME,"logs")
+USER_GUIDE = os.path.join(BASE_DIR, "USER_GUIDE.md")
