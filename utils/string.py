@@ -13,7 +13,7 @@ VERSION = "version 1.0"
 LICENSE = f"""
 {APP_NAME} {VERSION}
 INRIA, University of Rennes, France 
-Email : contact-rennes@inria.fr 
+Email : strokeseg@inria.fr
 
 This application uses the following open-source Python libraries: 
 - ONNX Runtime, 1.22.0,  github.com/microsoft/onnxruntime
