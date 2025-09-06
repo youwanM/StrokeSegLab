@@ -91,7 +91,7 @@ class GUIMain:
         
         self.option_menu = Menu(menubar,tearoff=0)
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
-        self.option_menu.add_checkbutton(label="Save prerocessing", variable=self.save_preproc)
+        self.option_menu.add_checkbutton(label="Save preprocessing", variable=self.save_preproc)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
         self.option_menu.add_command(label='Import a model',command=self._show_import_model)
         self.option_menu.add_command(label="Restore warning window", command=self._restore_warning_window)
