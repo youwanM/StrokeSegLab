@@ -65,3 +65,18 @@ def rm_entity(img_path : str,keyword : str)->str:
         name = name.rsplit("_",1)[0]
     name = name.rstrip("_") # Remove the last '_'
     return name
+
+def create_disclaimer_if_missing(file_path: str):
+    """
+    Creates a disclaimer.txt file with content 'TOTO' in the parent directory
+    of the specified file_path if it does not already exist.
+    """
+    parent_dir = os.path.dirname(file_path)
+    disclaimer_file = os.path.join(parent_dir, "disclaimer.txt")
+    
+    if not os.path.exists(disclaimer_file):
+        # Ensure the directory exists (usually it does)
+        os.makedirs(parent_dir, exist_ok=True)
+        # Create the file with "TOTO"
+        with open(disclaimer_file, "w") as f:
+            f.write("This application is for research purpose only!")

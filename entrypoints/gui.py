@@ -257,7 +257,7 @@ class GUIMain:
             self.label_keep_MNI.grid(row=5,column=0)
             self.keep_MNI_button.grid(row=5,column=1)
             self.option_menu.entryconfig("Save probability map",state="normal")
-            self.option_menu.entryconfig("Save prerocessing",state="normal")
+            self.option_menu.entryconfig("Save preprocessing",state="normal")
             self.option_menu.entryconfig("Threshold",state="normal")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid(row=4, column=2)
@@ -276,7 +276,7 @@ class GUIMain:
             self.save_pmap.set(False)
             self.save_preproc.set(False)
             self.option_menu.entryconfig("Save probability map",state="disabled")
-            self.option_menu.entryconfig("Save prerocessing",state="disabled")
+            self.option_menu.entryconfig("Save preprocessing",state="disabled")
             self.option_menu.entryconfig("Threshold",state="disabled")
             if len(self.viewers)==0:
                 self.label_viewer_not_found.grid_remove()

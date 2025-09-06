@@ -10,7 +10,7 @@ from managers.option_manager import Option
 from postprocessing.viewer import Viewer
 from preprocessing.resampling import Resampler
 from utils.wrapper import AnimaWrapper
-from utils.processing_utils import get_image_basename, move_to_output, rm_entity
+from utils.processing_utils import get_image_basename, move_to_output, rm_entity, create_disclaimer_if_missing
 
 class Postprocessor:
     """
@@ -229,6 +229,7 @@ class Postprocessor:
                 self._register_to_reference(nii_file,trsf_path,bet)
 
             output_path = move_to_output(nii_file)
+            create_disclaimer_if_missing(output_path)
             if open_viewer and name=="seg":
                 action_name="open viewer"
                 self._print_action(action_name)
