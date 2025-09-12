@@ -400,7 +400,10 @@ class GUIMain:
         Open a filedialog to select a model file.
         If a file is selected, store the path and clear the import status message
         """
-        filename = filedialog.askopenfilename(title='Select model file')
+        filename = filedialog.askopenfilename(
+            title='Select ONNX model file',
+            filetypes=[('ONNX files', '*.onnx')]
+        )
         if filename:
             self.model_to_import.set(filename)
             self.status_import_text.set("")
