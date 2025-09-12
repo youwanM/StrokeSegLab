@@ -111,7 +111,7 @@ class GUIMain:
         tk.Label(frame, text="Input path : ").grid(row=0,column=0,pady=10)
         self.entry_input_path = tk.Entry(frame, textvariable=self.input_path, state='readonly', width=50)
         self.entry_input_path.grid(row=0, column=1)
-        tk.Button(frame, text='Select input folder',command=self._select_input_folder).grid(row=0,column=2)
+        tk.Button(frame, text='Select BIDS folder',command=self._select_input_folder).grid(row=0,column=2)
         tk.Button(frame, text='Select input file',command=self._select_input_file).grid(row=0,column=3)
 
         self.label_suffix = tk.Label(frame, text="Suffix : ")
