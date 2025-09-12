@@ -12,7 +12,7 @@ from inference.inference import Inference
 from managers.config_manager import Config
 from utils.models_manager import add_model, update_models
 from managers.option_manager import Option
-from utils.path import LOGO, LOGO_INRIA, USER_GUIDE
+from utils.path import LOGO, LOGO_INSTITUTIONS, USER_GUIDE
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import threading
@@ -326,7 +326,7 @@ class GUIMain:
         about_window= tk.Toplevel(self.window)
         tk.Label(about_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
         tk.Label(about_window,text=VERSION).pack(pady=10)
-        about_window.logo = tk.PhotoImage(file=LOGO_INRIA)
+        about_window.logo = tk.PhotoImage(file=LOGO_INSTITUTIONS)
         tk.Label(about_window,image=about_window.logo).pack()
         about_notebook = ttk.Notebook(about_window)
         about_notebook.pack(expand=True, fill='both', padx=10, pady=10)
@@ -360,7 +360,7 @@ class GUIMain:
         help_window = tk.Toplevel(self.window)
         tk.Label(help_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
         tk.Label(help_window, text=VERSION).pack(pady=10)
-        help_window.logo = tk.PhotoImage(file=LOGO_INRIA)
+        help_window.logo = tk.PhotoImage(file=LOGO)
         tk.Label(help_window, image=help_window.logo).pack(pady=5)
 
         frame = tk.Frame(help_window)

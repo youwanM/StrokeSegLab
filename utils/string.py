@@ -6,6 +6,7 @@ Florent Leray (Inria / IRISA – Beaulieu University Campus)
 Elise Bannier (Neuroimaging: Methods and Applications, Radiology Department, Rennes University Hospital)
 Francesca Galassi (Neuroimaging: Methods and Applications)
 Yann Kerverdo (Inria – Beaulieu University Campus)
+Mathilde Liffran (Graphics & Logos)
 """
 
 APP_NAME = "StrokeSeg"
@@ -14,6 +15,7 @@ LICENSE = f"""
 {APP_NAME} {VERSION}
 INRIA, University of Rennes, France 
 Email : strokeseg@inria.fr
+AGPL v3 license
 
 This application uses the following open-source Python libraries: 
 - ONNX Runtime, 1.22.0,  github.com/microsoft/onnxruntime
