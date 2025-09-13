@@ -12,7 +12,7 @@ from inference.inference import Inference
 from managers.config_manager import Config
 from utils.models_manager import add_model, update_models
 from managers.option_manager import Option
-from utils.path import LOGO, LOGO_INRIA, USER_GUIDE
+from utils.path import LOGO, LOGO_INSTITUTIONS, USER_GUIDE
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
 import threading
@@ -111,7 +111,7 @@ class GUIMain:
         tk.Label(frame, text="Input path : ").grid(row=0,column=0,pady=10)
         self.entry_input_path = tk.Entry(frame, textvariable=self.input_path, state='readonly', width=50)
         self.entry_input_path.grid(row=0, column=1)
-        tk.Button(frame, text='Select input folder',command=self._select_input_folder).grid(row=0,column=2)
+        tk.Button(frame, text='Select BIDS folder',command=self._select_input_folder).grid(row=0,column=2)
         tk.Button(frame, text='Select input file',command=self._select_input_file).grid(row=0,column=3)
 
         self.label_suffix = tk.Label(frame, text="Suffix : ")
@@ -326,7 +326,7 @@ class GUIMain:
         about_window= tk.Toplevel(self.window)
         tk.Label(about_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
         tk.Label(about_window,text=VERSION).pack(pady=10)
-        about_window.logo = tk.PhotoImage(file=LOGO_INRIA)
+        about_window.logo = tk.PhotoImage(file=LOGO_INSTITUTIONS)
         tk.Label(about_window,image=about_window.logo).pack()
         about_notebook = ttk.Notebook(about_window)
         about_notebook.pack(expand=True, fill='both', padx=10, pady=10)
@@ -360,7 +360,7 @@ class GUIMain:
         help_window = tk.Toplevel(self.window)
         tk.Label(help_window, text=APP_NAME, font=("Arial", 18, "bold")).pack(pady=10)
         tk.Label(help_window, text=VERSION).pack(pady=10)
-        help_window.logo = tk.PhotoImage(file=LOGO_INRIA)
+        help_window.logo = tk.PhotoImage(file=LOGO)
         tk.Label(help_window, image=help_window.logo).pack(pady=5)
 
         frame = tk.Frame(help_window)
@@ -400,7 +400,10 @@ class GUIMain:
         Open a filedialog to select a model file.
         If a file is selected, store the path and clear the import status message
         """
-        filename = filedialog.askopenfilename(title='Select model file')
+        filename = filedialog.askopenfilename(
+            title='Select ONNX model file',
+            filetypes=[('ONNX files', '*.onnx')]
+        )
         if filename:
             self.model_to_import.set(filename)
             self.status_import_text.set("")
