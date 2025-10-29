@@ -243,7 +243,7 @@ class Preprocessor:
         """
         self.preprocessing_steps = []
         prefix = os.path.join(temp_dir,get_image_basename(t1))
-        if not prefix.endswith((BET,MNI)): 
+        if not (prefix.endswith((BET,MNI)) or self.option.get("skip_BET")): 
             if self.gui != None and self.gui.check_stop():
                 raise InterruptedError("Action was cancelled by the user.")
             action_name="brain extraction"

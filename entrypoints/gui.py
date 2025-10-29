@@ -22,7 +22,7 @@ class GUIMain:
     Graphical interface of the brain segmentation application
     This class initialize the Tkinter window, manage user inputs, run preprocessing, inference, postprocessing and updates the GUI
     """
-    def __init__(self, input_path : str,only_preprocessing : bool,save_preprocessing:bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str)->None:
+    def __init__(self, input_path : str,only_preprocessing : bool,save_preprocessing:bool, keep_MNI : bool ,save_pmap : bool , skip_BET : bool, threshold : float , model_name : str ,suffix : str ,viewer : str)->None:
         """
         Initialize the graphical interface with all the Tkinter widgets and run the main Tkinter loop (mainloop)
 
@@ -33,6 +33,7 @@ class GUIMain:
             keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
             save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
             threshold (float): Set the segmentation threshold to this value (0.5 if None)
+            skip_BET (bool): If True, skip the brain extraction step
             model_name (str): The model with this name located in the models folder will be used
             suffix (str): The suffix for the output segmentation (save it as default), use default one if None
             viewer (str): Name of the viewer used to open the first input image and its segmentation
@@ -76,6 +77,7 @@ class GUIMain:
 
         self.save_pmap = tk.BooleanVar(value=save_pmap)
         self.save_preproc = tk.BooleanVar(value=save_preprocessing)
+        self.skip_BET = tk.BooleanVar(value=False)
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
@@ -93,6 +95,7 @@ class GUIMain:
         self.option_menu.add_command(label='Threshold',command=self._show_threshold)
         self.option_menu.add_checkbutton(label="Save preprocessing", variable=self.save_preproc)
         self.option_menu.add_checkbutton(label="Save probability map", variable=self.save_pmap)
+        self.option_menu.add_checkbutton(label="Skip brain extraction", variable=self.skip_BET)
         self.option_menu.add_command(label='Import a model',command=self._show_import_model)
         self.option_menu.add_command(label="Restore warning window", command=self._restore_warning_window)
         menubar.add_cascade(label="Option",menu=self.option_menu)
@@ -275,6 +278,7 @@ class GUIMain:
             self.keep_MNI_button.grid_remove()
             self.save_pmap.set(False)
             self.save_preproc.set(False)
+            self.skip_BET.set(False)
             self.option_menu.entryconfig("Save probability map",state="disabled")
             self.option_menu.entryconfig("Save preprocessing",state="disabled")
             self.option_menu.entryconfig("Threshold",state="disabled")
@@ -558,6 +562,7 @@ class GUIMain:
         self.option.set("save_pmap", self.save_pmap.get())
         self.option.set("save_preproc", self.save_preproc.get())
         self.option.set("keep_MNI", self.keep_MNI.get())
+        self.option.set("skip_BET", self.skip_BET.get())
         
         self.nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
         if self.option.get("flair") and subject != flair:
