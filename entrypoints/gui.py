@@ -77,7 +77,7 @@ class GUIMain:
 
         self.save_pmap = tk.BooleanVar(value=save_pmap)
         self.save_preproc = tk.BooleanVar(value=save_preprocessing)
-        self.skip_BET = tk.BooleanVar(value=False)
+        self.skip_BET = tk.BooleanVar(value=skip_BET)
 
         self.channel_text = tk.StringVar()
         self.status_text = tk.StringVar()
