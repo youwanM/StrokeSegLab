@@ -419,13 +419,35 @@ class GUIMain:
         try:
             update_models()
             model_name = add_model(self.model_to_import.get())
-            s = f"The model {model_name} was successfully imported"
+            s = f"The model {model_name} was successfully imported, please restart the application to use it."
             self.logger.info(s)
             self.status_import_text.set(s)
             self.label_import_model.config(fg="green")
             update_models()
             self.models = [m.strip() for m in self.config.get("default", "models").split(",")]
             self.combo_models['values'] = self.models
+            popup = tk.Toplevel(self.window)
+            popup.title("Import Successful")
+            popup.geometry("400x150")
+            label = tk.Label(
+                popup,
+                text=s,
+                wraplength=350,
+                justify="center"
+            )
+            label.pack(pady=20)
+
+            def quit_app():
+                popup.destroy()     # Close popup
+                self.window.destroy()  # Close main window
+
+            quit_button = tk.Button(
+                popup,
+                text="Quit",
+                command=quit_app
+            )
+            quit_button.pack(pady=10)
+
         except ValueError as e:
             s=f"Import failed: {e}"
             self.logger.error(s)
