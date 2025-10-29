@@ -47,6 +47,7 @@ def parse_args(gui : bool) -> argparse.Namespace:
     parser.add_argument("--keep-mni", action="store_true", help="Save the input and output images registered to the MNI space")
     parser.add_argument("-t", "--threshold",  type=restricted_float, default=None, help="Threshold (optional)")
     parser.add_argument("--pmap", action="store_true", help="Save probability map")
+    parser.add_argument("--skip-bet", action="store_true", help="Skip brain extraction step")
     parser.add_argument("--import-model", nargs='?', const="__SHOW_MODELS__", help="Model path to add to usable models (try it with '-m', '--model' before). If called without value, list all models.")
     parser.add_argument("--gui", action="store_true", help="Open the GUI application")
     parser.add_argument("-v", "--verbose",action="store_true", help="Enable verbose mode (set logging level to DEBUG instead of INFO).")
@@ -58,10 +59,10 @@ def parse_args(gui : bool) -> argparse.Namespace:
         if (args.input and args.import_model) or (not args.input and not args.import_model):
             parser.error("You must specify either --input or --import-model")
 
-        if args.import_model is not None and (args.keep_mni or args.pmap or args.model or args.only_preproc or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
+        if args.import_model is not None and (args.keep_mni or args.pmap or args.skip_bet or args.model or args.only_preproc or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
             parser.error("When --import-model is used, no other options must be set!")
 
-    if args.only_preproc and (args.keep_mni or args.pmap or args.model is not None or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
+    if args.only_preproc and (args.keep_mni or args.pmap or args.skip_bet or args.model is not None or args.suffix is not None or args.viewer is not None or args.threshold is not None or args.save_preproc):
         parser.error("When --only-preprocessing is used, no other options must be set!")
     return args
 
@@ -76,6 +77,7 @@ if __name__ == "__main__":
                 only_preprocessing=args.only_preproc,
                 keep_MNI=args.keep_mni,
                 save_pmap=args.pmap,
+                skip_BET=args.skip_bet,
                 model_name = args.model,
                 threshold = args.threshold,
                 suffix = args.suffix,
@@ -90,6 +92,7 @@ if __name__ == "__main__":
             only_preprocessing=args.only_preproc,
             keep_MNI=args.keep_mni,
             save_pmap=args.pmap,
+            skip_BET=args.skip_bet,
             model_name = args.model,
             threshold = args.threshold,
             suffix = args.suffix,

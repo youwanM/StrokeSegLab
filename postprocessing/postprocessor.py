@@ -82,21 +82,33 @@ class Postprocessor:
         seg = (data >= threshold).astype(np.uint8)
         return seg,pmap
     
-    def _register_to_reference(self,img_path : str,trsf_path : str,ref : str)-> None:
+    def _register_seg_to_reference(self, img_path: str, trsf_path: str, ref: str) -> None:
         """
-        Register an image to a reference using anima executable and a wrapper
+        Register a segmentation to a reference using Anima.
+        Applies a binarization step afterward to remove float interpolation artifacts.
+        """
+        xml_path = trsf_path.replace('.txt', '.xml')
 
-        Args:
-            img_path (str): Image path
-            trsf_path (str): Path to the transformation text file, produced during the preprocessing
-            ref (str): Reference image path
-        """
-        xml_path = trsf_path.replace('.txt','.xml')
-        command=["animaTransformSerieXmlGenerator","-i",trsf_path,"-o",xml_path]
+        # Create XML transform
+        command = ["animaTransformSerieXmlGenerator", "-i", trsf_path, "-o", xml_path]
         self.wrapper.run(command)
 
-        command=["animaApplyTransformSerie","-i",img_path,"-t",xml_path,"-o",img_path,"-g",ref,"-I"]
+        # Apply transformation (produces float segmentation due to linear interpolation)
+        command = ["animaApplyTransformSerie", "-i", img_path, "-t", xml_path, "-o", img_path, "-g", ref, "-I"]
         self.wrapper.run(command)
+        self._binarize_seg(img_path)
+
+
+    def _binarize_seg(self, seg_path: str, threshold: float = 0.5) -> None:
+        """Convert float segmentation into a binary mask (0 / 1)."""
+        img = nibabel.load(seg_path)
+        data = img.get_fdata()
+        
+        # Threshold to binary
+        binary = (data >= threshold).astype(np.uint8)
+
+        # Save back to same file
+        nibabel.save(nibabel.Nifti1Image(binary, img.affine, img.header), seg_path)
 
     def _print_action(self,action_name : str)-> None:
         """
@@ -226,7 +238,7 @@ class Postprocessor:
             else:
                 action_name="register to reference"
                 self._print_action(action_name)
-                self._register_to_reference(nii_file,trsf_path,bet)
+                self._register_seg_to_reference(nii_file,trsf_path,bet)
 
             output_path = move_to_output(nii_file)
             create_disclaimer_if_missing(output_path)
