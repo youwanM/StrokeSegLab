@@ -14,7 +14,7 @@ class CLIMain:
     """
     Command line tool for the segmentation application
     """
-    def __init__(self, input_path : str,only_preprocessing : bool, save_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
+    def __init__(self, input_path : str,only_preprocessing : bool, save_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,skip_BET : bool, threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
         """
         Initialize the cli 
 
@@ -24,6 +24,7 @@ class CLIMain:
             save_preprocessing (bool): If True, save all the preprocessing steps
             keep_MNI (bool): If True, the app will save the input image and the segmentation in the MNI space
             save_pmap (bool): If True, the app will save the probability map in addition to the binary mask
+            skip_BET (bool): If True, skip the brain extraction step
             threshold (float): Set the segmentation threshold to this value (0.5 if None)
             model_name (str): If it’s a path, this model file will be used for the prediction. If it’s a name, the model with this name located in the models folder will be used
             suffix (str): The suffix for the output segmentation (save it as default), use default one if None
@@ -43,6 +44,7 @@ class CLIMain:
             self.option.set("save_preproc", save_preprocessing)
             self.option.set("keep_MNI", keep_MNI)
             self.option.set("save_pmap", save_pmap)
+            self.option.set("skip_BET", skip_BET)
             self.preprocessor = Preprocessor()
             if not self.only_preprocessing :
                 if model_name !=None:

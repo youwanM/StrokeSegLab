@@ -10,7 +10,7 @@ Mathilde Liffran (Graphics & Logos)
 """
 
 APP_NAME = "StrokeSeg"
-VERSION = "version 1.0"
+VERSION = "version 0.1.0"
 LICENSE = f"""
 {APP_NAME} {VERSION}
 INRIA, University of Rennes, France 

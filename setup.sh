@@ -157,11 +157,11 @@ pip install --upgrade pip
 if command -v nvidia-smi >/dev/null 2>&1; then
   echo "CUDA detected, installing GPU version of onnxruntime..."
   pip install --upgrade pip
-  pip install "onnxruntime-gpu[cudnn]" nibabel scipy tkhtmlview markdown
+  pip install "onnxruntime-gpu[cudnn]" nibabel scipy tkhtmlview markdown scikit-image pandas
 else
   echo "CUDA not detected, installing CPU version of onnxruntime..."
   pip install --upgrade pip
-  pip install onnxruntime nibabel scipy tkhtmlview markdown
+  pip install onnxruntime nibabel scipy tkhtmlview markdown scikit-image pandas
 fi
 
 echo "Virtual environment setup complete"
