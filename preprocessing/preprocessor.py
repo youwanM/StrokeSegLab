@@ -39,6 +39,7 @@ class Preprocessor:
     
     def _load_img(self,img_path : str)->tuple[np.ndarray, tuple[float,float,float], np.ndarray, tuple[int,int,int]]:
         """
+        @public
         Load a NIFTI image from the given file path.
         - Load using nibabel
         - extract affine matrix and voxel spacing
@@ -63,6 +64,7 @@ class Preprocessor:
     
     def _z_score_norm(self,data : np.ndarray, seg : np.ndarray=None) -> np.ndarray:
         """
+        @public
         Apply z-score normalization to the input data. If a segmentation mask is provided, the normalization is applied only on the region where the mask is non-negative. Otherwise, the entire volume is normalized.
 
         Args:
@@ -87,6 +89,7 @@ class Preprocessor:
 
     def _bias_correct(self,img_path : str, prefix:str)-> str:
         """
+        @public
         Use an Anima executable through a wrapper to perform bias correction on the image
 
         Args:
@@ -104,6 +107,7 @@ class Preprocessor:
         
     def _register_to_reference(self,img_path : str ,ref : str ,suffix : str ,prefix : str ) -> tuple[str,str]:
         """
+        @public
         Register an image to a reference using Anima's pyramidal block matching registration.
 
         Args:
@@ -123,6 +127,7 @@ class Preprocessor:
 
     def _print_action(self,action_name : str)->None:
         """
+        @public
         Log the current action
         Args:
             action_name (str): Name of the action
@@ -133,6 +138,7 @@ class Preprocessor:
 
     def _reorient_RAS(self,img_path : str,prefix : str)->str:
         """
+        @public
         Reorient to RAS an image
 
         Args:
@@ -151,6 +157,7 @@ class Preprocessor:
 
     def _create_nonzero_mask(self,data : np.ndarray)->np.ndarray:
         """
+        @public
         Create a binary mask indicating where the input data is non-zero
 
         Args:
@@ -168,6 +175,7 @@ class Preprocessor:
 
     def _crop_to_nonzero(self,data : np.ndarray, seg : np.ndarray =None, nonzero_label : int =-1,bbox : tuple[slice, slice, slice] =None)-> tuple[np.ndarray, np.ndarray, tuple[slice, slice, slice]]:
         """
+        @public
         Crop the input data and segmentation to the non-zero region. Optionally reuses a provided bounding box (Used to crop the FLAIR image using the same bounding box as the T1 image)
 
         Args:
@@ -195,6 +203,7 @@ class Preprocessor:
 
     def _padding(self,data : np.ndarray, min_size : int =128)->tuple[np.ndarray, list[tuple[int, int]]]:
         """
+        @public
         Pad the data with zeros so that each dimension is at least min_size
         If the input data has 4 dimensions and the first dimension (channels) is 1, this dimension is squeezed out before padding and then restored afterwards
         The padding is applied symmetrically (half before, half after) on each dimension.
@@ -307,6 +316,7 @@ class Preprocessor:
     
     def _preprocess_modality(self,modality : str ,is_MNI : bool ,bbox : tuple[slice, slice, slice] = None)-> tuple[np.ndarray,np.ndarray,list[tuple[int, int]], tuple[int,int,int], str, tuple[float,float,float], list[tuple[int, int]], str]:
         """
+        @public
         Run the full preprocessing pipeline except brain extraction : 
         - If the image is not already register to MNI : bias correction, reorient to RAS, register to MNI
         - Resampling, Z score, padding

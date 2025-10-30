@@ -47,6 +47,7 @@ class Resampler:
     
     def _determine_do_sep_z_and_axis(self,current_spacing : tuple[float,float,float], new_spacing : tuple[float,float,float])->tuple[bool,int]:
         """
+        @public
         Decides if resampling should be done separately along the z-axis and finds the right axis
         The choice is based on the force_separate_z attribute and the spacing values. If force_separate_z is set, it is used first. If not, the method checks if the current or new spacing needs separate resampling in the z direction
 
@@ -91,6 +92,7 @@ class Resampler:
     
     def _get_lowres_axis(self,new_spacing : tuple[float,float,float])->np.ndarray:
         """
+        @public
         Finds which axis has the biggest spacing (=the lowest resolution)
 
         Args:
@@ -104,6 +106,7 @@ class Resampler:
     
     def _get_do_separate_z(self,spacing : tuple[float,float,float])->bool:
         """
+        @public
          It compares the ratio between the max and min spacing values to a threshold (separate_z_anisotropy_threshold)
 
         Args:
@@ -118,6 +121,7 @@ class Resampler:
     
     def _compute_new_shape(self, old_shape : np.ndarray, old_spacing : tuple[float,float,float], new_spacing : tuple[float,float,float]) -> np.ndarray:
         """
+        @public
         Computes the new shape of data after resampling to a new spacing
         Scales each dimension according to the ratio of old and new spacing values
 
@@ -136,6 +140,7 @@ class Resampler:
     
     def _resample_data_or_seg(self, data : np.ndarray, new_shape : np.ndarray, axis : int,do_separate_z : bool, dtype_out : np.dtype = None)->np.ndarray:
         """
+        @public
         Resample image or segmentation data to a new shape, optionally resampling separately along an anisotropic axis
 
         Args:
