@@ -33,6 +33,7 @@ class Postprocessor:
     
     def _save_img(self,temp_dir :str ,data : np.ndarray ,base_name : str,affine : np.ndarray, name : str)->str:
         """
+        @public
         Save a NIFTI image with a dynamically constructed name
 
         Args:
@@ -56,6 +57,7 @@ class Postprocessor:
     
     def _convert_to_segmentation(self, data : np.ndarray,threshold: float)->tuple[np.ndarray,np.ndarray]:
         """
+        @public
         Convert the output of the model into a segmentation based on the threshold given : 
         - Take the first element of the batch axis
         - Apply a softmax on the channel dimensions (2 channels : background and lesion)
@@ -84,6 +86,7 @@ class Postprocessor:
     
     def _register_seg_to_reference(self, img_path: str, trsf_path: str, ref: str) -> None:
         """
+        @public
         Register a segmentation to a reference using Anima.
         Applies a binarization step afterward to remove float interpolation artifacts.
         """
@@ -100,7 +103,10 @@ class Postprocessor:
 
 
     def _binarize_seg(self, seg_path: str, threshold: float = 0.5) -> None:
-        """Convert float segmentation into a binary mask (0 / 1)."""
+        """
+        @public
+        Convert float segmentation into a binary mask (0 / 1).
+        """
         img = nibabel.load(seg_path)
         data = img.get_fdata()
         
@@ -112,6 +118,7 @@ class Postprocessor:
 
     def _print_action(self,action_name : str)-> None:
         """
+        @public
         Log the current action
         Args:
             action_name (str): Name of the action
@@ -122,6 +129,7 @@ class Postprocessor:
     
     def _remove_padding(self,data : np.ndarray, padding : list[tuple[int, int]])->np.ndarray:
         """
+        @public
         Remove padding from a numpy array based on a list of tuples specifying the intervals to keep for each dimension
 
         Args:
@@ -140,6 +148,7 @@ class Postprocessor:
 
     def _uncrop_from_bbox(self,data : np.ndarray,slicer : tuple[slice,slice,slice],original_shape : tuple[int,int,int])->np.ndarray:
         """
+        @public
         Place the cropped data back into a full-size volume at the location specified by slicer. Then transpose the volume axes from (x, y, z) to (z, y, x)
 
         Args:

@@ -41,6 +41,7 @@ class Inference:
     
     def _compute_steps(self,image_size : tuple[int,int,int], patch_size : list[int], step_size : float =0.5)->list[list[int]]:
         """
+        @public
         Compute the coordinates of starting positions for the inference
         Args:
             image_size (tuple[int,int,int]): Size of the image
@@ -76,6 +77,7 @@ class Inference:
      
     def _compute_gaussian(self, patch_size : list[int], dtype=np.float32, sigma_scale : float=1./8, value_scaling_factor:float=10.0)->np.ndarray:
         """
+        @public
         Compute a centered Gaussian importance map for a patch size
         Args:
             patch_size (list[int]): Dimensions of the patch
