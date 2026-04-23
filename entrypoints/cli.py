@@ -29,7 +29,7 @@ class CLIMain:
         self.session_dir = args.session_dir # This is {SuspendDirectory}
         
         # Mapping for components (Preprocessor/Postprocessor)
-        self._option.set("input_path", args.input_dir if args.input_dir else args.input)
+        self._option.set("input_path", args.input_dir)
         self._option.set("result_path", self.result_dir)
         self._option.set("session_path", self.session_dir)
 

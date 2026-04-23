@@ -1,10 +1,17 @@
-import argparse
 import sys
 import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, current_dir)
+
+import argparse
 from entrypoints.cli import CLIMain
 from entrypoints.gui import GUIMain
+
 from utils.logger import setup_logger
 from managers.config_manager import Config
+
+# ... [Rest of your stroke_seg.py code] ...
 
 def restricted_float(x: str) -> float:
     try:
