@@ -20,30 +20,36 @@ def get_image_basename(img_path : str)->str:
             name = name[:-len(ext)]
     return name
 
-def move_to_output(img_path : str) ->str:
+def move_to_output(img_path: str, is_clinical_result: bool = False) -> str:
     """
-    Copy an image file to the correct output directory
-    Handle BIDS and not BIDS input directory, and also file
-
-    Args:
-        img_path (str): Path of the image to copy
-
-    Returns:
-        str: Path of the copy
+    Handles file output logic. 
+    In Frontier mode: only files with is_clinical_result=True go to the shared result dir.
     """
     option = Option()
+    frontier_result_dir = option.get("result_path")
+
+    # 1. Clinical Result (visible in syngo.via)
+    if is_clinical_result and frontier_result_dir:
+        os.makedirs(frontier_result_dir, exist_ok=True)
+        dest = os.path.join(frontier_result_dir, os.path.basename(img_path))
+        shutil.copy(img_path, dest)
+        return dest
+
+    # 2. Intermediate/Local Storage (stays inside VM, hidden from clinical tree)
     subject_name = os.path.basename(img_path).split("_")[0]
     input_path = option.get("input_path")
+    
     if option.get("is_file"):
-        if RAWDATA in input_path :
-            raw_dir = input_path.split(RAWDATA)[0] # If input is a file in a BIDS directory, it finds the derivatives directory
-            output_dir = os.path.join(raw_dir,DERIVATIVES,subject_name,"anat") 
+        if RAWDATA in input_path:
+            raw_dir = input_path.split(RAWDATA)[0]
+            output_dir = os.path.join(raw_dir, DERIVATIVES, subject_name, "anat") 
         else:
-            output_dir = os.path.dirname(input_path) # If input isn't in a BIDS directory, the copy will be placed in the parent directory of the input file
+            output_dir = os.path.dirname(input_path)
     else :
-        output_dir = os.path.join(input_path,DERIVATIVES,subject_name,"anat")
-    os.makedirs(output_dir,exist_ok=True)
-    return shutil.copy(img_path,os.path.join(output_dir,os.path.basename(img_path)))
+        output_dir = os.path.join(input_path, DERIVATIVES, subject_name, "anat")
+
+    os.makedirs(output_dir, exist_ok=True)
+    return shutil.copy(img_path, os.path.join(output_dir, os.path.basename(img_path)))
 
 def rm_entity(img_path : str,keyword : str)->str:
     """

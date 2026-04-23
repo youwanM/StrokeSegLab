@@ -1,179 +1,143 @@
 import time
+import os
+import logging
+import sys
+import onnxruntime as ort
 from inference.inference import Inference
 from managers.config_manager import Config
 from utils.models_manager import add_model, get_input_channels, update_models
 from managers.option_manager import Option
 from postprocessing.postprocessor import Postprocessor
 from preprocessing.preprocessor import Preprocessor
-import onnxruntime as ort
-import os
-import logging
-import tempfile
 
 class CLIMain:
     """
-    Command line tool for the segmentation application
+    Command line tool for the segmentation application adapted for syngo.via Frontier.
     """
-    def __init__(self, input_path : str,only_preprocessing : bool, save_preprocessing : bool, keep_MNI : bool ,save_pmap : bool ,skip_BET : bool, threshold : float , model_name : str ,suffix : str ,viewer : str,import_model : str)->None:
-        """
-        Initialize the CLI.
-
-        **Args:**
-        - `input_path` (str): The input path.
-        - `only_preprocessing` (bool): Perform brain extraction only.
-        - `save_preprocessing` (bool): Save all preprocessing steps.
-        - `keep_MNI` (bool): Save input and segmentation in MNI space.
-        - `save_pmap` (bool): Save probability map in addition to binary mask.
-        - `skip_BET` (bool): Skip brain extraction step.
-        - `threshold` (float): Segmentation threshold (default 0.5 if None).
-        - `model_name` (str): Path or name of the model.
-        - `suffix` (str): Output segmentation suffix.
-        - `viewer` (str): Viewer name for result visualization.
-        - `import_model` (str): Model import mode or name.
-        """
+    def __init__(self, args) -> None:
         self._logger = logging.getLogger()
         print("="*60)
-        print("⚠️  This tool is for research purpose only ! ")
+        print("⚠️  This tool is for research purpose only! ")
         print("="*60)
+        
+        self.args = args
         self._option = Option()
         self._config = Config()
-        if import_model is None : 
-            self._option.set("input_path",input_path)
-            self.only_preprocessing = only_preprocessing
-            self.threshold = 0.5 if threshold is None else threshold
-            self._option.set("save_preproc", save_preprocessing)
-            self._option.set("keep_MNI", keep_MNI)
-            self._option.set("save_pmap", save_pmap)
-            self._option.set("skip_BET", skip_BET)
-            self.preprocessor = Preprocessor()
-            if not self.only_preprocessing :
-                if model_name !=None:
-                    if os.path.isfile(model_name):
-                        self._option.set("model_path",model_name)
-                    else : 
-                        models = self._config.get('default', 'models').split(',')
-                        models = [m for m in models]
-                        if model_name not in models: # Check if the model specified is in the config models list 
-                            self._logger.error(f"{model_name} not in {models}")
-                            sys.exit(1)
-                        else:
-                            self._config.set("default","model",model_name)
-                            self._config.save()
-                if suffix != None:
-                    self._config.set("default","suffix",suffix)
-                self.viewer = viewer
-                self._option.set("device",self._check_device())
-                self.inference = Inference()
-                self.postprocessor = Postprocessor()
+        
+        # 1. Handle syngo.via Directories
+        self.result_dir = args.result_dir 
+        self.session_dir = args.session_dir # This is {SuspendDirectory}
+        
+        # Mapping for components (Preprocessor/Postprocessor)
+        self._option.set("input_path", args.input_dir if args.input_dir else args.input)
+        self._option.set("result_path", self.result_dir)
+        self._option.set("session_path", self.session_dir)
 
-        elif import_model == "__SHOW_MODELS__":
-            pass
-        else:
-            self.model_path = import_model
-    
-    def _check_device(self) -> str:
-        """
-        @public
-        Check Cuda if available
-
-        Returns:
-            str: The selected execution provider ('CUDAExecutionProvider' or 'CPUExecutionProvider')
-        """
-        available_providers = ort.get_available_providers()
-        if 'CUDAExecutionProvider' in available_providers:
-            device = 'CUDAExecutionProvider'
-        else : 
-            device = 'CPUExecutionProvider'
-        self._logger.info(f'using device : {device}')
-        return device
-    
-    def import_model(self) -> None:
-        """
-        Try to import the model file in the models directory
-        """
-        try:
-            update_models()
-            model_name = add_model(self.model_path)
-            self._logger.info(f"The model {model_name} was successfully imported")
-            update_models()
-        except ValueError as e:
-            self._logger.error(f"Import failed: {e}")
-        except Exception as e:
-            self._logger.error(f"Unexpected error during model import: {e}")
-    
-    def show_models(self) -> None:
-        """
-        Print all the models available in the models directory
-        """
-        update_models()
-        models_str = self._config.get("default", "models")
-        models = [m.strip() for m in models_str.split(',') if m.strip()]
-
-        if not models:
-            print("⚠️ No models found in the configuration.")
+        # 2. Handle Model Import Logic
+        if hasattr(args, 'import_model') and args.import_model is not None:
+            self.model_path = args.import_model
             return
 
-        print("Available models:")
-        for model in models:
-            print(f" - {model}")
+        # 3. Configure Pipeline Options
+        self.only_preprocessing = getattr(args, 'only_preproc', False)
+        self.threshold = args.threshold
+        
+        self._option.set("save_preproc", getattr(args, 'save_preproc', False))
+        self._option.set("keep_MNI", getattr(args, 'keep_mni', False))
+        self._option.set("save_pmap", getattr(args, 'pmap', False))
+        self._option.set("skip_BET", getattr(args, 'skip_bet', False))
+        
+        self.preprocessor = Preprocessor()
 
-    def run(self)-> None:
+        if not self.only_preprocessing:
+            self._setup_inference_engine(args)
+
+    def _setup_inference_engine(self, args):
+        model_name = getattr(args, 'model', None)
+        if model_name:
+            if os.path.isfile(model_name):
+                self._option.set("model_path", model_name)
+            else:
+                models = self._config.get('default', 'models').split(',')
+                if model_name not in [m.strip() for m in models]:
+                    self._logger.error(f"{model_name} not found in available models.")
+                    sys.exit(1)
+                else:
+                    self._config.set("default", "model", model_name)
+                    self._config.save()
+
+        if getattr(args, 'suffix', None):
+            self._config.set("default", "suffix", args.suffix)
+            
+        self.viewer = getattr(args, 'viewer', None)
+        self._option.set("device", self._check_device())
+        self.inference = Inference()
+        self.postprocessor = Postprocessor()
+
+    def _check_device(self) -> str:
+        available_providers = ort.get_available_providers()
+        device = 'CUDAExecutionProvider' if 'CUDAExecutionProvider' in available_providers else 'CPUExecutionProvider'
+        self._logger.info(f'Using device: {device}')
+        return device
+
+    def run(self) -> None:
         """
-        Run the prediction or the brain extraction only with all the options specified
+        Run prediction using the session_dir as the working directory.
         """
         start = time.time()
-        if self._option.get("model_path") is None:
-            model_name = self._config.get("default","model")
-            if self._config.get("ModelChannels",model_name)=="2":
-                self._option.set("flair",True)
-            else:
-                self._option.set("flair",False)
-        else :
-            channels = get_input_channels(self._option.get("model_path"))
-            if channels==2:
-                self._option.set("flair",True)
-            else:
-                self._option.set("flair",False)
-
         
-        if not self.only_preprocessing and self.viewer != None and self.viewer != "default":
-            try :
-                self.postprocessor.check_viewer(self.viewer)
-            except Exception as e:
-                self._logger.error(f"Viewer check failed: {e}")
-                raise
-
+        # 1. Determine the base working directory
+        # We use session_dir if provided, otherwise fallback to local temp
+        base_work_dir = self.session_dir if self.session_dir else os.getcwd()
         
-        i=0
-        nii_paths,subject,flair,none_list = self.preprocessor.find_nii_files()
-        if len(nii_paths)==0:
-            self._logger.error("No NIfTI files (.nii or .nii.gz) found in the specified input path.")
-            raise ValueError("No NIfTI files found.")
-        if self._option.get("flair") and subject != flair:
-            if none_list:
-                none_string = ", ".join(none_list)
-                self._logger.info(f"These subjects : \"{none_string}\" are missing either a T1 or a FLAIR image.")
-        self._logger.info(f"{len(nii_paths)} subject(s) found")
-        for t1, flair in nii_paths.items():
-            temp_dir = tempfile.mkdtemp(prefix="unet_preprocess")
+        # Configure Channels
+        model_name = self._config.get("default", "model")
+        is_flair = self._config.get("ModelChannels", model_name) == "2"
+        self._option.set("flair", is_flair)
+
+        # Find Files
+        nii_paths, subject, flair, none_list = self.preprocessor.find_nii_files()
+        if not nii_paths:
+            self._logger.error("No NIfTI files found.")
+            return
+
+        self._logger.info(f"{len(nii_paths)} subject(s) found. Using working dir: {base_work_dir}")
+
+        for i, (t1, flair_img) in enumerate(nii_paths.items()):
+            # Create a subject-specific subfolder in the session directory 
+            # to avoid file collisions between subjects.
+            subj_name = os.path.basename(t1).split('.')[0]
+            temp_dir = os.path.join(base_work_dir, f"work_{subj_name}")
+            os.makedirs(temp_dir, exist_ok=True)
+            
             try:
-                if flair is None:
-                    self._logger.info(f"Starting processing on: {os.path.basename(t1)}")
-                else : 
-                    self._logger.info(f"Starting processing on: ({os.path.basename(t1)},{os.path.basename(flair)})")
-                if not self.only_preprocessing :
-                    data, affine, bbox,original_shape, trsf_path, old_spacing, padding,bet,MNI_base_image  = self.preprocessor.run(t1,flair,temp_dir)
+                self._logger.info(f"Processing: {os.path.basename(t1)}")
+                
+                if not self.only_preprocessing:
+                    # 1. Preprocessing
+                    data, affine, bbox, orig_shape, trsf, spacing, pad, bet, mni = \
+                        self.preprocessor.run(t1, flair_img, temp_dir)
+                    
+                    # 2. Inference
                     data = self.inference.run(data)
-                    if self.viewer != None and i==0: # Only open the viewer for the first image
-                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold,True)
-                    else : 
-                        self.postprocessor.run(data,affine,t1,bbox,original_shape,temp_dir,trsf_path,old_spacing,padding,bet,MNI_base_image,self.threshold)
-                else : # Preprocessing only
-                    self.preprocessor.run(t1,flair,temp_dir,True)
-                i+=1
+                    
+                    # 3. Postprocessing (Saves final mask to result_dir)
+                    show_viewer = (self.viewer is not None and i == 0)
+                    self.postprocessor.run(
+                        data, affine, t1, bbox, orig_shape, temp_dir,
+                        trsf, spacing, pad, bet, mni, self.threshold, 
+                        show_viewer,
+                        output_dir=self.result_dir
+                    )
+                else:
+                    self.preprocessor.run(t1, flair_img, temp_dir, True)
+                
+            except Exception as e:
+                self._logger.error(f"Error processing {t1}: {e}")
+            finally:
+                # Clean up the subject sub-folder, but keep the session_dir root 
+                # (where threshold.txt lives).
                 self.preprocessor.clean(temp_dir)
-            except Exception as e: # If an exception occurs, processing of the current subject is stopped, a message is logged to inform the user, and the process continues with the next subject
-                self._logger.error(f"Error while processing {t1} : {e}")
-        self.preprocessor.clean(temp_dir)
-        final = time.time()-start
+
+        final = time.time() - start
         self._logger.info(f"Total prediction time: {final:.2f} seconds")

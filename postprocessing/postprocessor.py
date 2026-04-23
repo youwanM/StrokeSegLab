@@ -174,8 +174,7 @@ class Postprocessor:
         self.viewer.check_viewer(viewer)
 
 
-    
-    def run(self,data : np.ndarray ,affine : np.ndarray ,input_path : str ,bbox : list[tuple[int, int]] ,original_shape : tuple[int,int,int],temp_dir : str ,trsf_path : str,old_spacing : tuple[float,float,float],padding : list[tuple[int, int]],bet : str ,MNI_base_image : str,threshold : float ,open_viewer : bool =False) -> None:
+    def run(self, data, affine, input_path, bbox, original_shape, temp_dir, trsf_path, old_spacing, padding, bet, MNI_base_image, threshold, open_viewer=False, output_dir=None) -> None:
         """
         Run the entire postprocessing pipeline on the data produced by the inference step : 
         - Convert to segmentation, return a pmap if the option is specified by the user
@@ -249,8 +248,10 @@ class Postprocessor:
                 self._print_action(action_name)
                 self._register_seg_to_reference(nii_file,trsf_path,bet)
 
-            output_path = move_to_output(nii_file)
-            create_disclaimer_if_missing(output_path)
+            # Frontier Integration: Only the mask is sent to the clinical directory
+            # If name is "seg", it goes to Frontier. If "pmap", it stays in the VM local folder.
+            is_mask = (name == "seg")
+            output_path = move_to_output(nii_file, is_clinical_result=is_mask)
             if open_viewer and name=="seg":
                 action_name="open viewer"
                 self._print_action(action_name)
