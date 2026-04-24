@@ -25,11 +25,11 @@ class CLIMain:
         self._config = Config()
         
         # 1. Handle syngo.via Directories
-        self.result_dir = args.result_dir 
-        self.session_dir = args.session_dir # This is {SuspendDirectory}
+        self.result_dir = getattr(args, 'result_dir', None) 
+        self.session_dir = getattr(args, 'session_dir', None) # This is {SuspendDirectory}
         
         # Mapping for components (Preprocessor/Postprocessor)
-        self._option.set("input_path", args.input_dir)
+        self._option.set("input_path", getattr(args, 'input_dir', getattr(args, 'input', None)))
         self._option.set("result_path", self.result_dir)
         self._option.set("session_path", self.session_dir)
 
@@ -40,7 +40,7 @@ class CLIMain:
 
         # 3. Configure Pipeline Options
         self.only_preprocessing = getattr(args, 'only_preproc', False)
-        self.threshold = args.threshold
+        self.threshold = getattr(args, 'threshold', 0.5)
         
         self._option.set("save_preproc", getattr(args, 'save_preproc', False))
         self._option.set("keep_MNI", getattr(args, 'keep_mni', False))
@@ -89,21 +89,16 @@ class CLIMain:
         # 1. Determine the base working directory
         # We use session_dir if provided, otherwise fallback to local temp
         base_work_dir = self.session_dir if self.session_dir else os.getcwd()
-        
-        # Configure Channels
-        model_name = self._config.get("default", "model")
-        is_flair = self._config.get("ModelChannels", model_name) == "2"
-        self._option.set("flair", is_flair)
 
-        # Find Files
-        nii_paths, subject, flair, none_list = self.preprocessor.find_nii_files()
+        # Find Files (Simplified to return just paths and count)
+        nii_paths, subject_number = self.preprocessor.find_nii_files()
         if not nii_paths:
             self._logger.error("No NIfTI files found.")
             return
 
-        self._logger.info(f"{len(nii_paths)} subject(s) found. Using working dir: {base_work_dir}")
+        self._logger.info(f"{subject_number} subject(s) found. Using working dir: {base_work_dir}")
 
-        for i, (t1, flair_img) in enumerate(nii_paths.items()):
+        for i, t1 in enumerate(nii_paths):
             # Create a subject-specific subfolder in the session directory 
             # to avoid file collisions between subjects.
             subj_name = os.path.basename(t1).split('.')[0]
@@ -114,9 +109,9 @@ class CLIMain:
                 self._logger.info(f"Processing: {os.path.basename(t1)}")
                 
                 if not self.only_preprocessing:
-                    # 1. Preprocessing
+                    # 1. Preprocessing (No FLAIR passed)
                     data, affine, bbox, orig_shape, trsf, spacing, pad, bet, mni = \
-                        self.preprocessor.run(t1, flair_img, temp_dir)
+                        self.preprocessor.run(t1, temp_dir=temp_dir)
                     
                     # 2. Inference
                     data = self.inference.run(data)
@@ -126,11 +121,12 @@ class CLIMain:
                     self.postprocessor.run(
                         data, affine, t1, bbox, orig_shape, temp_dir,
                         trsf, spacing, pad, bet, mni, self.threshold, 
-                        show_viewer,
+                        open_viewer=show_viewer,
                         output_dir=self.result_dir
                     )
                 else:
-                    self.preprocessor.run(t1, flair_img, temp_dir, True)
+                    # Preprocessing only mode
+                    self.preprocessor.run(t1, temp_dir=temp_dir, bet_only=True)
                 
             except Exception as e:
                 self._logger.error(f"Error processing {t1}: {e}")
